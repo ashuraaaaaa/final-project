@@ -5,12 +5,13 @@ const CURRENT_USER_KEY = 'app_current_user';
 
 // --- User Account Management ---
 
-// Loads all user accounts from local storage
+/**
+ * Loads all user accounts (students and instructors) from Local Storage.
+ * @returns {Array} An array of user objects, or an empty array if none exist.
+ */
 export const loadUsers = () => {
-// ^^^ CRITICAL: Must be 'export const'
     try {
         const users = localStorage.getItem(USERS_KEY);
-        // Returns the parsed array or an empty array if none exists
         return users ? JSON.parse(users) : [];
     } catch (e) {
         console.error("Error loading users:", e);
@@ -18,9 +19,11 @@ export const loadUsers = () => {
     }
 };
 
-// Saves the entire array of user accounts to local storage
+/**
+ * Saves the entire array of user accounts to Local Storage.
+ * @param {Array} users - The array of user objects to save.
+ */
 export const saveUsers = (users) => {
-// ^^^ CRITICAL: Must be 'export const'
     try {
         localStorage.setItem(USERS_KEY, JSON.stringify(users));
     } catch (e) {
@@ -31,9 +34,11 @@ export const saveUsers = (users) => {
 
 // --- Current Session Management ---
 
-// Loads the currently logged-in user object
+/**
+ * Loads the currently logged-in user object from Local Storage.
+ * @returns {Object|null} The current user object or null if no user is logged in.
+ */
 export const loadCurrentUser = () => {
-// ^^^ CRITICAL: Must be 'export const'
     try {
         const user = localStorage.getItem(CURRENT_USER_KEY);
         return user ? JSON.parse(user) : null;
@@ -43,9 +48,11 @@ export const loadCurrentUser = () => {
     }
 };
 
-// Saves the current user object to local storage
+/**
+ * Saves the current user object to Local Storage (logs a user in).
+ * @param {Object} user - The user object to save.
+ */
 export const saveCurrentUser = (user) => {
-// ^^^ CRITICAL: Must be 'export const'
     try {
         localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user));
     } catch (e) {
@@ -53,9 +60,10 @@ export const saveCurrentUser = (user) => {
     }
 };
 
-// Clears the current user session
+/**
+ * Clears the current user session from Local Storage (logs a user out).
+ */
 export const clearCurrentUser = () => {
-// ^^^ CRITICAL: Must be 'export const'
     try {
         localStorage.removeItem(CURRENT_USER_KEY);
     } catch (e) {
