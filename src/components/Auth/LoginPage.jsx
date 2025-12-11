@@ -1,6 +1,6 @@
-// src/components/Auth/LoginPage.js
+// src/components/Auth/LoginPage.jsx
 import React, { useState } from 'react';
-import { loadUsers, saveCurrentUser } from '../../utils/storage';
+import { loadUsers, saveCurrentUser } from '../../utils/storage.js';
 
 const LoginPage = ({ setScreen, setCurrentUser, role, setModal }) => {
   const [email, setEmail] = useState("");
@@ -49,7 +49,6 @@ const LoginPage = ({ setScreen, setCurrentUser, role, setModal }) => {
       <h1 className="text-3xl font-bold mb-8 text-blue-400">{role} Sign In</h1>
 
       <div className="w-full flex flex-col gap-4">
-        {/* The missing <input> tag was added here */}
         <input
           type="email"
           placeholder="Email"
@@ -58,7 +57,6 @@ const LoginPage = ({ setScreen, setCurrentUser, role, setModal }) => {
           className="w-full p-4 rounded bg-gray-700 text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:outline-none transition-colors"
           disabled={isLoading}
         />
-        {/* End of fix */}
         
         <input
           type="password"

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { loadUsers, saveUsers, saveCurrentUser } from '../../utils/storage';
+import { loadUsers, saveCurrentUser, saveUsers } from '../../utils/storage.js'; 
 
 const SignupPage = ({ setScreen, setCurrentUser, role, setModal }) => {
   const [email, setEmail] = useState("");
@@ -16,6 +16,7 @@ const SignupPage = ({ setScreen, setCurrentUser, role, setModal }) => {
     setIsLoading(true);
     const users = loadUsers();
     
+
     setTimeout(() => { 
         if (users.some(u => u.email === email)) {
             setModal({ message: "Email already registered. Please sign in.", type: "error" });

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { loadCurrentUser } from './utils/storage';
+import { loadCurrentUser } from './utils/storage.js';
 
 // Import Components
 import ChooseRole from './components/Auth/ChooseRole.jsx';
@@ -8,6 +8,7 @@ import SignupPage from './components/Auth/SignupPage';
 import StudentDashboard from './components/Dashboard/StudentDashboard';
 import InstructorDashboard from './components/Dashboard/InstructorDashboard';
 import QuizPage from './components/Quiz/QuizPage';
+import QuizCreationPage from './components/Quiz/QuizCreationPage'; 
 import ShowMessage from './components/Common/ShowMessage';
 import ConfirmationModal from './components/Common/ConfirmationModal';
 
@@ -16,6 +17,7 @@ const App = () => {
   const [role, setRole] = useState(""); 
   const [screen, setScreen] = useState("choose"); 
   const [modal, setModal] = useState(null); 
+  const [activeQuizId, setActiveQuizId] = useState(null); 
 
   // Load user state from local storage on mount
   useEffect(() => {
@@ -40,12 +42,24 @@ const App = () => {
         return <SignupPage role={role} setScreen={setScreen} setCurrentUser={setCurrentUser} setModal={setModal} />;
       case "student":
         if (!currentUser) return <ChooseRole setRole={setRole} setScreen={setScreen} />;
-        return <StudentDashboard currentUser={currentUser} setScreen={setScreen} />;
+        return <StudentDashboard 
+                    currentUser={currentUser} 
+                    setScreen={setScreen} 
+                    setModal={setModal} 
+                    setActiveQuizId={setActiveQuizId} // NEW Prop
+                />;
       case "instructor":
         if (!currentUser) return <ChooseRole setRole={setRole} setScreen={setScreen} />;
-        return <InstructorDashboard currentUser={currentUser} setScreen={setScreen} />;
+        return <InstructorDashboard 
+                    currentUser={currentUser} 
+                    setScreen={setScreen} 
+                    setModal={setModal} 
+                />;
+      case "createQuiz": // NEW Instructor Quiz Creation screen
+        return <QuizCreationPage setScreen={setScreen} setModal={setModal} />;
       case "quiz":
-        return <QuizPage setScreen={setScreen} setModal={setModal} />;
+        // Pass the ID of the quiz the student selected
+        return <QuizPage setScreen={setScreen} setModal={setModal} activeQuizId={activeQuizId} />; 
       default:
         return <ChooseRole setRole={setRole} setScreen={setScreen} />;
     }
