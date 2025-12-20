@@ -9,6 +9,7 @@ const StudentDashboard = ({ setScreen, currentUser, setCurrentUser, setModal, se
   const [editMode, setEditMode] = useState(false);
   const [profileData, setProfileData] = useState({ ...currentUser });
 
+  // --- 1. Load User Data ---
   useEffect(() => {
     if (currentUser && currentUser.id) {
         // Load quizzes ONLY for this specific user ID
@@ -24,11 +25,14 @@ const StudentDashboard = ({ setScreen, currentUser, setCurrentUser, setModal, se
     setScreen("login");
   };
 
+  // --- 2. Profile & Image Handling ---
   const handleSaveProfile = () => {
     const users = loadUsers();
+    // Update the specific user in the main database
     const updatedUsers = users.map(u => u.id === currentUser.id ? profileData : u);
     saveUsers(updatedUsers);
     
+    // Update the current session
     saveCurrentUser(profileData);
     setCurrentUser(profileData); 
     
@@ -36,33 +40,50 @@ const StudentDashboard = ({ setScreen, currentUser, setCurrentUser, setModal, se
     setModal({ message: "Profile updated successfully!", type: "success" });
   };
 
-  // Helper to find THIS student's specific submission for a quiz
+  const handleImageUpload = (e) => {
+      const file = e.target.files[0];
+      if (file) {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+              setProfileData({ ...profileData, profilePic: reader.result });
+          };
+          reader.readAsDataURL(file);
+      }
+  };
+
+  // --- 3. Quiz Access Logic ---
   const getMySubmission = (quizId) => {
       const allSubmissions = JSON.parse(localStorage.getItem(`quiz_submissions_${quizId}`) || '[]');
       return allSubmissions.find(sub => sub.studentId === currentUser.id);
   };
 
-  const handleStartQuiz = (quizId) => {
-    const mySubmission = getMySubmission(quizId);
+  const handleStartQuiz = (quizId, isRetake = false) => {
+    // If Retake, DELETE the old submission so QuizPage starts fresh
+    if (isRetake) {
+        const storageKey = `quiz_submissions_${quizId}`;
+        const existingSubmissions = JSON.parse(localStorage.getItem(storageKey) || '[]');
+        const filteredSubmissions = existingSubmissions.filter(sub => sub.studentId !== currentUser.id);
+        localStorage.setItem(storageKey, JSON.stringify(filteredSubmissions));
+    }
     
-    // If the student already submitted
-    if (mySubmission) {
-        // If results are released, allow them to enter "Review Mode"
-        if (mySubmission.isReleased) {
-            setActiveQuizId(quizId);
-            setScreen("quiz"); // The QuizPage will detect isReleased and show answers
-            return;
-        }
-        
-        // If results are NOT released, prevent entry
-        setModal({ 
-            message: "You have already taken this quiz. Results are still pending release by the instructor.", 
+    // For Review Mode (if not retaking)
+    const mySubmission = getMySubmission(quizId);
+    if (mySubmission && mySubmission.isReleased && !isRetake) {
+        setActiveQuizId(quizId);
+        setScreen("quiz");
+        return;
+    }
+    
+    // If results are NOT released and they try to enter, block them (unless it's a retake scenario handled by button)
+    if (mySubmission && !mySubmission.isReleased && !isRetake) {
+         setModal({ 
+            message: "You have already taken this quiz. Results are still pending release.", 
             type: "info" 
         });
         return;
     }
-    
-    // If not submitted yet, start the quiz normally
+
+    // Normal Start / Retake
     setActiveQuizId(quizId);
     setScreen("quiz");
   }
@@ -75,9 +96,15 @@ const StudentDashboard = ({ setScreen, currentUser, setCurrentUser, setModal, se
         return;
     }
     
+    // Check if new students are allowed (blocked if released and NOT already joined)
+    if (quizToStart.isReleased && !joinedQuizzes.find(q => q.id === quizToStart.id)) {
+        setModal({ message: "This quiz is closed for new participants.", type: "error" });
+        return;
+    }
+
     joinQuiz(quizToStart.id, currentUser.id); 
     
-    // Update local state so the list refreshes
+    // Update local state so the list refreshes immediately
     if (!joinedQuizzes.find(q => q.id === quizToStart.id)) {
         setJoinedQuizzes(prev => [...prev, quizToStart]); 
     }
@@ -97,13 +124,26 @@ const StudentDashboard = ({ setScreen, currentUser, setCurrentUser, setModal, se
     <div className="min-h-screen bg-gray-900 text-white p-6 flex flex-col w-full max-w-4xl mx-auto">
       <header className="flex justify-between items-center mb-8 pb-4 border-b border-gray-700">
         <div className='flex items-center gap-4'>
-            <h1 className="text-3xl font-extrabold text-blue-300">Welcome, {currentUser?.fullName || currentUser?.username}!</h1>
-            <button 
-                onClick={() => setShowProfile(true)}
-                className="px-3 py-1 bg-gray-700 rounded text-sm hover:bg-gray-600 border border-gray-600"
-            >
-                My Profile
-            </button>
+            {/* --- PROFILE PICTURE DISPLAY --- */}
+            <div className="w-12 h-12 rounded-full bg-gray-700 overflow-hidden border-2 border-blue-500 cursor-pointer" onClick={() => setShowProfile(true)}>
+                {currentUser?.profilePic ? (
+                    <img src={currentUser.profilePic} alt="Profile" className="w-full h-full object-cover" />
+                ) : (
+                    <div className="w-full h-full flex items-center justify-center text-xl font-bold text-gray-400">
+                        {currentUser?.fullName?.[0] || "S"}
+                    </div>
+                )}
+            </div>
+
+            <div>
+                <h1 className="text-3xl font-extrabold text-blue-300">Welcome, {currentUser?.fullName || currentUser?.username}!</h1>
+                <button 
+                    onClick={() => setShowProfile(true)}
+                    className="text-xs text-gray-400 hover:text-white underline"
+                >
+                    Edit Profile
+                </button>
+            </div>
         </div>
         <button
           className="px-4 py-2 bg-red-600 rounded-xl font-bold hover:bg-red-700 transition-colors shadow-md"
@@ -119,6 +159,23 @@ const StudentDashboard = ({ setScreen, currentUser, setCurrentUser, setModal, se
             <div className="bg-gray-800 p-6 rounded-xl w-full max-w-md border border-blue-500 shadow-2xl">
                 <h2 className="text-2xl font-bold mb-4 text-blue-400">My Profile</h2>
                 
+                {/* Profile Image Section */}
+                <div className="flex flex-col items-center mb-6">
+                    <div className="w-24 h-24 rounded-full bg-gray-700 overflow-hidden border-4 border-blue-500 mb-3">
+                        {profileData.profilePic ? (
+                            <img src={profileData.profilePic} alt="Profile" className="w-full h-full object-cover" />
+                        ) : (
+                            <div className="w-full h-full flex items-center justify-center text-4xl font-bold text-gray-500">?</div>
+                        )}
+                    </div>
+                    {editMode && (
+                        <label className="cursor-pointer bg-blue-600 px-3 py-1 rounded text-xs font-bold hover:bg-blue-500 transition-colors">
+                            Upload Photo
+                            <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+                        </label>
+                    )}
+                </div>
+
                 <div className="space-y-3">
                     <div>
                         <span className="text-gray-400 text-sm">Full Name</span>
@@ -197,11 +254,15 @@ const StudentDashboard = ({ setScreen, currentUser, setCurrentUser, setModal, se
               const isReleased = mySubmission?.isReleased;
               const totalScore = quiz.questions.reduce((sum, q) => sum + q.score, 0);
               
+              // --- CRITICAL: Check if quiz has been updated since student took it ---
+              const hasNewVersion = quiz.lastUpdated > (mySubmission?.quizVersionTaken || 0);
+
               // Color shifts: Blue (Start), Yellow (Pending), Green (Released/Review)
               const statusColor = isSubmitted ? (isReleased ? 'green' : 'yellow') : 'blue';
               
               const resultText = () => {
                   if (!isSubmitted) return `${quiz.questions.length} Questions | ${quiz.duration} minutes`;
+                  if (hasNewVersion) return `Status: Updates Available (Retake Allowed)`;
                   if (isReleased) return `Final Score: ${mySubmission.score}/${totalScore}`;
                   return 'Status: Submitted (Waiting for Score)';
               }
@@ -214,16 +275,42 @@ const StudentDashboard = ({ setScreen, currentUser, setCurrentUser, setModal, se
                             {resultText()}
                         </span>
                     </div>
-                    <button 
-                        className={`px-5 py-2 rounded-lg font-bold transition-all shadow-md 
-                            ${isSubmitted && !isReleased 
-                                ? 'bg-gray-600 opacity-50 cursor-not-allowed' 
-                                : 'bg-blue-600 hover:bg-blue-500 active:scale-95'}`}
-                        disabled={isSubmitted && !isReleased}
-                        onClick={() => handleStartQuiz(quiz.id)}
-                    >
-                      {isSubmitted ? (isReleased ? 'View Score' : 'Submitted') : 'Start'}
-                    </button>
+                    
+                    <div className='flex gap-2'>
+                        {/* REVIEW BUTTON (Only if released and no new version) */}
+                        {isSubmitted && isReleased && !hasNewVersion && (
+                            <button 
+                                className="px-4 py-2 bg-blue-600 rounded-lg font-bold hover:bg-blue-500 shadow-md"
+                                onClick={() => handleStartQuiz(quiz.id, false)}
+                            >
+                                Review Results
+                            </button>
+                        )}
+
+                        {/* RETAKE BUTTON (If updated) OR START BUTTON (If new) */}
+                        {!isSubmitted ? (
+                             <button 
+                                className="px-5 py-2 bg-blue-600 rounded-lg font-bold hover:bg-blue-500 shadow-md" 
+                                onClick={() => handleStartQuiz(quiz.id, false)}
+                             >
+                                Start
+                             </button>
+                        ) : hasNewVersion ? (
+                             <button 
+                                className="px-5 py-2 bg-purple-600 rounded-lg font-bold hover:bg-purple-500 shadow-md animate-pulse" 
+                                onClick={() => handleStartQuiz(quiz.id, true)} // true = force retake
+                             >
+                                Retake Update
+                             </button>
+                        ) : (
+                             <button 
+                                className="px-5 py-2 bg-gray-600 rounded-lg font-bold opacity-50 cursor-not-allowed" 
+                                disabled
+                             >
+                                Submitted
+                             </button>
+                        )}
+                    </div>
                   </div>
               );
           })}

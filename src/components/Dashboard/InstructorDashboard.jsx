@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { clearCurrentUser, loadUsers } from '../../utils/storage.js'; 
+import { clearCurrentUser, loadUsers, saveUsers, saveCurrentUser } from '../../utils/storage.js'; 
 import { loadQuizzes, deleteQuiz, saveQuizzes } from '../../utils/quizStorage.js'; 
 
 const InstructorDashboard = ({ setScreen, currentUser, setModal }) => {
@@ -12,10 +12,44 @@ const InstructorDashboard = ({ setScreen, currentUser, setModal }) => {
     // Stores temporary scores for the rubric: { "q_1_criteria_0": 5, "q_1_criteria_1": 3 }
     const [rubricScores, setRubricScores] = useState({});
 
+    // --- PROFILE STATE ---
+    const [showProfile, setShowProfile] = useState(false);
+    const [editMode, setEditMode] = useState(false);
+    const [profileData, setProfileData] = useState({ ...currentUser });
+
     useEffect(() => {
         setAllQuizzes(loadQuizzes());
         setTotalStudents(loadUsers().filter(u => u.role === "Student").length);
-    }, []);
+        setProfileData({ ...currentUser });
+        
+        // Clear edit session when entering dashboard to ensure fresh state
+        localStorage.removeItem('editQuizId');
+    }, [currentUser]);
+
+    // --- PROFILE HANDLERS ---
+    const handleSaveProfile = () => {
+        const users = loadUsers();
+        // Update the instructor in the main database
+        const updatedUsers = users.map(u => u.id === currentUser.id ? profileData : u);
+        saveUsers(updatedUsers);
+        
+        // Update the current session
+        saveCurrentUser(profileData);
+        
+        setEditMode(false);
+        setModal({ message: "Instructor profile updated successfully!", type: "success" });
+    };
+
+    const handleImageUpload = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setProfileData({ ...profileData, profilePic: reader.result });
+            };
+            reader.readAsDataURL(file);
+        }
+    };
 
     const getQuizStats = (quizId) => {
         const submissions = JSON.parse(localStorage.getItem(`quiz_submissions_${quizId}`) || '[]');
@@ -50,16 +84,29 @@ const InstructorDashboard = ({ setScreen, currentUser, setModal }) => {
         setModal({ message: `Results for Quiz ID ${quizId} released.`, type: "success" });
     }
 
+    // --- UPDATED DELETE HANDLER (Soft Delete) ---
     const handleDeleteQuiz = (quizId) => {
         setModal({
-            message: "Are you sure you want to delete this quiz?",
+            message: "Are you sure you want to delete this quiz? It will be removed from your dashboard, but students will still have access to their results.",
             type: "error",
             onConfirm: () => {
-                deleteQuiz(quizId);
-                localStorage.removeItem(`quiz_submissions_${quizId}`); 
-                setAllQuizzes(loadQuizzes()); 
+                // 1. Soft Delete: Update 'isDeleted' flag instead of removing
+                const updatedQuizzes = allQuizzes.map(q => 
+                    q.id === quizId ? { ...q, isDeleted: true } : q
+                );
+                
+                saveQuizzes(updatedQuizzes);
+                setAllQuizzes(updatedQuizzes); 
+                
+                // 2. IMPORTANT: We do NOT remove `quiz_submissions_${quizId}`
+                // This ensures student history is preserved.
             }
         });
+    };
+
+    const handleEditQuiz = (quizId) => {
+        localStorage.setItem('editQuizId', quizId); 
+        setScreen("createQuiz");
     };
 
     const handleLogout = () => {
@@ -69,45 +116,37 @@ const InstructorDashboard = ({ setScreen, currentUser, setModal }) => {
 
     // --- GRADING LOGIC ---
     const updateRubricScore = (qId, criteriaIndex, score, maxPoints) => {
-        // 1. Clamp score between 0 and maxPoints
         const validScore = Math.min(Math.max(0, Number(score)), maxPoints);
         
-        // 2. Update local rubric state
         const key = `${qId}_c_${criteriaIndex}`;
         const newRubricScores = { ...rubricScores, [key]: validScore };
         setRubricScores(newRubricScores);
 
-        // 3. Recalculate TOTAL score for this specific question
-        // Note: This requires summing up all criteria keys for this question
-        const questionTotal = Object.keys(newRubricScores)
-            .filter(k => k.startsWith(`${qId}_c_`))
-            .reduce((sum, k) => sum + newRubricScores[k], 0);
-
-        // 4. Update the Main Submission Object in real-time
-        // We need to calculate the GRAND TOTAL for the whole quiz
+        // Recalculate Grand Total
         let grandTotal = 0;
-        
         selectedQuiz.questions.forEach((q, idx) => {
             const currentQId = `q_${q.id || idx}`;
             if (q.type === 'Essay' && q.rubric) {
-                // Sum rubric parts for this question
                 let qSum = 0;
                 q.rubric.forEach((_, rIdx) => {
                     qSum += (newRubricScores[`${currentQId}_c_${rIdx}`] || 0);
                 });
                 grandTotal += qSum;
             } else {
-                // For non-essay, keep existing score if correct
-                // (Simplified: assuming objective questions were auto-graded correctly previously)
-                // In a robust app, we'd store per-question scores. 
-                // Here, we add non-essay scores if they were correct.
-                if (selectedSubmission.answers[currentQId] === q.answer) {
+                const studentAns = (selectedSubmission.answers[currentQId] || "").trim();
+                
+                if (q.type === 'Identification') {
+                    // Check against "or" possibilities
+                    const possibleAnswers = q.answer.split(' or ').map(a => a.trim().toLowerCase());
+                    if (possibleAnswers.includes(studentAns.toLowerCase())) {
+                        grandTotal += q.score;
+                    }
+                } else if (studentAns === q.answer) {
                     grandTotal += q.score;
                 }
             }
         });
 
-        // 5. Save to Storage
         const quizKey = `quiz_submissions_${selectedQuiz.id}`;
         const subs = JSON.parse(localStorage.getItem(quizKey) || "[]");
         const updatedSubs = subs.map(s => 
@@ -115,7 +154,6 @@ const InstructorDashboard = ({ setScreen, currentUser, setModal }) => {
         );
         localStorage.setItem(quizKey, JSON.stringify(updatedSubs));
         
-        // 6. Update UI
         setViewingSubmissions(updatedSubs);
         setSelectedSubmission({ ...selectedSubmission, score: grandTotal });
     };
@@ -123,9 +161,87 @@ const InstructorDashboard = ({ setScreen, currentUser, setModal }) => {
     return (
         <div className="min-h-screen bg-gray-900 text-white p-6 flex flex-col w-full max-w-5xl mx-auto">
             <header className="flex justify-between items-center mb-8 pb-4 border-b border-gray-700">
-                <h1 className="text-3xl font-extrabold text-green-300">Instructor Dashboard</h1>
+                <div className='flex items-center gap-4'>
+                    {/* --- INSTRUCTOR PROFILE PIC --- */}
+                    <div className="w-12 h-12 rounded-full bg-gray-700 overflow-hidden border-2 border-green-500 cursor-pointer" onClick={() => setShowProfile(true)}>
+                        {profileData.profilePic ? (
+                            <img src={profileData.profilePic} alt="Profile" className="w-full h-full object-cover" />
+                        ) : (
+                            <div className="w-full h-full flex items-center justify-center text-xl font-bold text-gray-400">
+                                {profileData.fullName?.[0] || "I"}
+                            </div>
+                        )}
+                    </div>
+                    <div>
+                        <h1 className="text-3xl font-extrabold text-green-300">Instructor Dashboard</h1>
+                        <button onClick={() => setShowProfile(true)} className="text-xs text-gray-400 hover:text-white underline">Edit Profile</button>
+                    </div>
+                </div>
                 <button className="px-4 py-2 bg-red-600 rounded-xl hover:bg-red-700 transition-colors font-bold shadow-md" onClick={handleLogout}>Logout</button>
             </header>
+
+            {/* --- INSTRUCTOR PROFILE MODAL --- */}
+            {showProfile && (
+                <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+                    <div className="bg-gray-800 p-6 rounded-xl w-full max-w-md border border-green-500 shadow-2xl">
+                        <h2 className="text-2xl font-bold mb-4 text-green-400">Instructor Profile</h2>
+                        
+                        <div className="flex flex-col items-center mb-6">
+                            <div className="w-24 h-24 rounded-full bg-gray-700 overflow-hidden border-4 border-green-500 mb-3">
+                                {profileData.profilePic ? (
+                                    <img src={profileData.profilePic} alt="Profile" className="w-full h-full object-cover" />
+                                ) : (
+                                    <div className="w-full h-full flex items-center justify-center text-4xl font-bold text-gray-500">?</div>
+                                )}
+                            </div>
+                            {editMode && (
+                                <label className="cursor-pointer bg-green-600 px-3 py-1 rounded text-xs font-bold hover:bg-green-500">
+                                    Change Photo
+                                    <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+                                </label>
+                            )}
+                        </div>
+
+                        <div className="space-y-4">
+                            <div>
+                                <span className="text-gray-400 text-sm">Full Name</span>
+                                {editMode ? 
+                                    <input className="w-full p-2 rounded bg-gray-700 border border-green-500" value={profileData.fullName} onChange={e => setProfileData({...profileData, fullName: e.target.value})} /> 
+                                    : <p className="text-lg font-bold">{profileData.fullName}</p>
+                                }
+                            </div>
+                            <div>
+                                <span className="text-gray-400 text-sm">Username</span>
+                                {editMode ? 
+                                    <input className="w-full p-2 rounded bg-gray-700 border border-green-500" value={profileData.username} onChange={e => setProfileData({...profileData, username: e.target.value})} /> 
+                                    : <p className="text-lg">{profileData.username}</p>
+                                }
+                            </div>
+                            <div>
+                                <span className="text-gray-400 text-sm">Contact Info</span>
+                                {editMode ? 
+                                    <input className="w-full p-2 rounded bg-gray-700 border border-green-500" value={profileData.contact} onChange={e => setProfileData({...profileData, contact: e.target.value})} /> 
+                                    : <p className="text-lg">{profileData.contact || "N/A"}</p>
+                                }
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end gap-3 mt-6 border-t border-gray-700 pt-4">
+                            {editMode ? (
+                                <>
+                                    <button onClick={() => { setEditMode(false); setProfileData(currentUser); }} className="px-4 py-2 bg-gray-600 rounded">Cancel</button>
+                                    <button onClick={handleSaveProfile} className="px-4 py-2 bg-green-600 rounded hover:bg-green-500">Save Changes</button>
+                                </>
+                            ) : (
+                                <>
+                                    <button onClick={() => setShowProfile(false)} className="px-4 py-2 bg-gray-600 rounded">Close</button>
+                                    <button onClick={() => setEditMode(true)} className="px-4 py-2 bg-blue-600 rounded hover:bg-blue-500">Edit Profile</button>
+                                </>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* --- SUBMISSIONS LIST --- */}
             {selectedQuiz && (
@@ -188,7 +304,6 @@ const InstructorDashboard = ({ setScreen, currentUser, setModal }) => {
                             <button onClick={() => setSelectedSubmission(null)} className="px-6 py-3 bg-gray-600 rounded font-bold hover:bg-gray-500">Done</button>
                         </div>
 
-                        {/* --- THE GRADING TABLE --- */}
                         <div className="overflow-x-auto rounded-lg border border-gray-700">
                             <table className="w-full text-left border-collapse">
                                 <thead>
@@ -234,7 +349,6 @@ const InstructorDashboard = ({ setScreen, currentUser, setModal }) => {
                                                                                     min="0" 
                                                                                     max={r.points} 
                                                                                     className="w-16 p-1 bg-gray-700 text-white border border-blue-500 rounded text-center font-bold"
-                                                                                    // Default to 0 if not graded yet, this is strictly manual for now
                                                                                     value={rubricScores[`${qId}_c_${rIdx}`] || 0}
                                                                                     onChange={(e) => updateRubricScore(qId, rIdx, e.target.value, r.points)}
                                                                                 />
@@ -246,7 +360,6 @@ const InstructorDashboard = ({ setScreen, currentUser, setModal }) => {
                                                             </tbody>
                                                         </table>
                                                     ) : (
-                                                        // Fallback for non-essay or no rubric
                                                         <div className="text-sm text-green-300">
                                                             {q.type !== 'Essay' ? (
                                                                 <>
@@ -254,7 +367,17 @@ const InstructorDashboard = ({ setScreen, currentUser, setModal }) => {
                                                                     {q.answer}
                                                                     <div className="mt-2 text-right">
                                                                         <span className="font-bold text-white">
-                                                                            {studentAns === q.answer ? q.score : 0} / {q.score}
+                                                                            {/* Calculate display score based on type logic */}
+                                                                            {(() => {
+                                                                                const ans = (studentAns || "").trim();
+                                                                                let isCorrect = false;
+                                                                                if (q.type === 'Identification') {
+                                                                                    isCorrect = q.answer.split(' or ').map(a => a.trim().toLowerCase()).includes(ans.toLowerCase());
+                                                                                } else {
+                                                                                    isCorrect = ans === q.answer;
+                                                                                }
+                                                                                return isCorrect ? q.score : 0;
+                                                                            })()} / {q.score}
                                                                         </span>
                                                                     </div>
                                                                 </>
@@ -289,7 +412,8 @@ const InstructorDashboard = ({ setScreen, currentUser, setModal }) => {
                             </tr>
                         </thead>
                         <tbody>
-                            {allQuizzes.map(quiz => {
+                            {/* FILTER: Show only quizzes NOT marked as deleted */}
+                            {allQuizzes.filter(q => !q.isDeleted).map(quiz => {
                                 const stats = getQuizStats(quiz.id);
                                 return (
                                     <tr key={quiz.id} className="border-b border-gray-700 hover:bg-gray-700 transition-colors">
@@ -299,7 +423,11 @@ const InstructorDashboard = ({ setScreen, currentUser, setModal }) => {
                                         <td className={`px-4 py-3 font-bold ${stats.totalViolations > 0 ? 'text-red-400' : 'text-green-400'}`}>{stats.totalViolations}</td>
                                         <td className="px-4 py-3 flex gap-2">
                                             <button onClick={() => handleViewDetails(quiz)} className="px-3 py-1 text-xs rounded font-bold bg-blue-600 hover:bg-blue-500 text-white transition-colors">View</button>
+                                            
+                                            <button onClick={() => handleEditQuiz(quiz.id)} className="px-3 py-1 text-xs rounded font-bold bg-yellow-600 hover:bg-yellow-500 text-white transition-colors">Edit</button>
+                                            
                                             <button onClick={() => handleReleaseResults(quiz.id)} className={`px-3 py-1 text-xs rounded font-bold ${stats.isReleased ? 'bg-gray-600 cursor-not-allowed' : 'bg-green-600 hover:bg-green-500'}`} disabled={stats.isReleased || stats.totalSubmissions === 0}>{stats.isReleased ? 'Released' : 'Release'}</button>
+                                            
                                             <button onClick={() => handleDeleteQuiz(quiz.id)} className="px-3 py-1 text-xs rounded font-bold bg-red-600 hover:bg-red-500 text-white transition-colors">Delete</button>
                                         </td>
                                     </tr>
