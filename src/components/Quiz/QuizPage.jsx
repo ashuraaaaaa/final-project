@@ -9,6 +9,9 @@ const QuizPage = ({ setScreen, setModal, activeQuizId }) => {
   const [violations, setViolations] = useState(0); 
   const [timeLeft, setTimeLeft] = useState(0); 
   const [timeElapsed, setTimeElapsed] = useState(0); 
+  // NEW: check if instructor released score
+const [isScoreReleased, setIsScoreReleased] = useState(false);
+
 
   const timerRef = useRef(null);
   const isViolatingRef = useRef(false);
