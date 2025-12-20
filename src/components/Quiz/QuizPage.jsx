@@ -19,14 +19,13 @@ const QuizPage = ({ setScreen, setModal, activeQuizId }) => {
     const storageKey = `quiz_submissions_${activeQuizId}`;
     const existingSubmissions = JSON.parse(localStorage.getItem(storageKey) || '[]');
     
-    // Check if this student ID is already in the submissions list
     const hasTaken = existingSubmissions.some(sub => sub.studentId === currentUser?.id);
 
     if (hasTaken) {
         setModal({ 
             message: "Access Denied: You have already attempted this quiz. Retakes are not allowed.", 
             type: "error",
-            onConfirm: () => setScreen("student") // Force redirect on click
+            onConfirm: () => setScreen("student") 
         });
         setScreen("student"); 
     }
@@ -110,6 +109,7 @@ const QuizPage = ({ setScreen, setModal, activeQuizId }) => {
     let finalScore = 0;
     const totalScore = quizData.questions.reduce((sum, q) => sum + q.score, 0);
 
+    // Auto-grade only Objective type questions
     quizData.questions.forEach(q => {
       if (q.type !== 'Essay' && q.type !== 'Short Answer' && q.answer === answers[`q_${q.id || q.index}`]) {
         finalScore += q.score;
@@ -122,7 +122,7 @@ const QuizPage = ({ setScreen, setModal, activeQuizId }) => {
       studentId: currentUser?.id,
       studentName: currentUser?.fullName || currentUser?.username,
       answers: answers, 
-      score: finalScore,
+      score: finalScore, // Essays default to 0
       totalScore: totalScore,
       violations: violations,
       timeTaken: timeElapsed,
@@ -146,7 +146,6 @@ const QuizPage = ({ setScreen, setModal, activeQuizId }) => {
         if (violations >= 3) {
             submitMessage = "Quiz TERMINATED due to security violations (3 tabs opened).";
             modalType = "error";
-            // FIX: Redirect to dashboard immediately when they click OK on this specific error
             onConfirmAction = () => setScreen("student"); 
         } else {
             submitMessage = "Time expired. Quiz auto-submitted.";
@@ -157,7 +156,7 @@ const QuizPage = ({ setScreen, setModal, activeQuizId }) => {
     setModal({ 
         message: `${submitMessage} Your answers have been recorded.`, 
         type: modalType,
-        onConfirm: onConfirmAction // Pass the redirect action
+        onConfirm: onConfirmAction 
     });
   };
 
@@ -183,7 +182,6 @@ const QuizPage = ({ setScreen, setModal, activeQuizId }) => {
         <button
           className="px-4 py-2 bg-red-600 rounded-lg hover:bg-red-700 transition-colors font-bold shadow-md"
           onClick={handleBack}
-          // FIX: Only disable if NOT submitted. Once submitted, ALWAYS enable so they can leave.
           disabled={!isSubmitted && isViolatingRef.current}
         >
           {isSubmitted ? 'Back to Dashboard' : 'End Quiz'}
@@ -203,10 +201,44 @@ const QuizPage = ({ setScreen, setModal, activeQuizId }) => {
 
           return (
             <div key={qId} className="p-5 border border-gray-700 rounded-lg space-y-3 bg-gray-700 shadow-inner">
-              <p className="font-semibold text-xl">{index + 1}. {q.text} <span className='text-sm text-gray-400'>({q.type})</span></p>
+              <p className="font-semibold text-xl">{index + 1}. {q.text} <span className='text-sm text-gray-400'>({q.type} - {q.score}pts)</span></p>
               
+              {/* --- UPDATED: Rubric Display (Table or Text) --- */}
+              {(q.type === 'Essay' || q.type === 'Short Answer') && (
+                  <div className="mb-4">
+                      {q.rubric && q.rubric.length > 0 ? (
+                          // RENDER TABLE RUBRIC
+                          <div className="bg-gray-800 rounded border border-blue-500 overflow-hidden">
+                              <div className="bg-blue-900/30 p-2 border-b border-blue-500/50">
+                                  <span className="font-bold text-blue-300 text-sm uppercase">Grading Rubric</span>
+                              </div>
+                              <table className="w-full text-sm text-left text-gray-300">
+                                  <thead>
+                                      <tr className="bg-gray-900 border-b border-gray-700 text-xs uppercase">
+                                          <th className="p-2 w-3/4">Criteria</th>
+                                          <th className="p-2 w-1/4 text-right">Max Points</th>
+                                      </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-gray-700">
+                                      {q.rubric.map((r, i) => (
+                                          <tr key={i} className="hover:bg-gray-700/50">
+                                              <td className="p-2">{r.criteria}</td>
+                                              <td className="p-2 text-right font-mono text-blue-200">{r.points}</td>
+                                          </tr>
+                                      ))}
+                                  </tbody>
+                              </table>
+                          </div>
+                      ) : q.answer ? (
+                          // FALLBACK TO TEXT RUBRIC
+                          <div className="bg-gray-800 p-3 rounded text-sm text-gray-300 border-l-4 border-blue-500">
+                              <span className="font-bold text-blue-400">Instructions:</span> {q.answer}
+                          </div>
+                      ) : null}
+                  </div>
+              )}
+
               <div className="flex flex-col gap-2">
-                
                 {(q.type === 'Multiple Choice' || q.type === 'True or False') && q.options.map(opt => (
                   <button
                     key={opt}
@@ -224,8 +256,8 @@ const QuizPage = ({ setScreen, setModal, activeQuizId }) => {
 
                 {(q.type === 'Short Answer' || q.type === 'Essay') && (
                     <textarea
-                        rows={q.type === 'Essay' ? 4 : 2}
-                        placeholder={`Enter your ${q.type.toLowerCase()} answer here...`}
+                        rows={q.type === 'Essay' ? 5 : 2}
+                        placeholder={`Type your answer here...`}
                         value={answers[qId] || ''}
                         onChange={(e) => handleSelect(qId, e.target.value)}
                         disabled={isSubmitted || isViolatingRef.current}
