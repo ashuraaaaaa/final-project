@@ -1,18 +1,11 @@
 import React, { useState, useEffect } from 'react';
-<<<<<<< HEAD
-import { clearCurrentUser, loadUsers } from '../../utils/storage.js'; 
-// ADDED: saveQuizzes import
-=======
 import { clearCurrentUser, loadUsers, saveUsers, saveCurrentUser } from '../../utils/storage.js'; 
->>>>>>> New-Feature
 import { loadQuizzes, deleteQuiz, saveQuizzes } from '../../utils/quizStorage.js'; 
 
 const InstructorDashboard = ({ setScreen, currentUser, setModal }) => {
     const [selectedSubmission, setSelectedSubmission] = useState(null);
     const [allQuizzes, setAllQuizzes] = useState([]);
     const [totalStudents, setTotalStudents] = useState(0);
-    
-    // State for the "View Details" Modal
     const [selectedQuiz, setSelectedQuiz] = useState(null); 
     const [viewingSubmissions, setViewingSubmissions] = useState([]);
 
@@ -58,19 +51,11 @@ const InstructorDashboard = ({ setScreen, currentUser, setModal }) => {
         }
     };
 
-    // Helper: Get aggregated stats for the main table
     const getQuizStats = (quizId) => {
-        // Fetch the array of submissions
         const submissions = JSON.parse(localStorage.getItem(`quiz_submissions_${quizId}`) || '[]');
-        
         return {
             totalSubmissions: submissions.length,
-            // Sum of all violations across all students
             totalViolations: submissions.reduce((sum, sub) => sum + (sub.violations || 0), 0),
-<<<<<<< HEAD
-            // UPDATED: Check main quiz object first for release status
-=======
->>>>>>> New-Feature
             isReleased: allQuizzes.find(q => q.id === quizId)?.isReleased || false
         };
     };
@@ -81,40 +66,22 @@ const InstructorDashboard = ({ setScreen, currentUser, setModal }) => {
         return `${minutes}m ${remainingSeconds}s`;
     };
 
-    // Action: Open the "Who Took It" Modal
     const handleViewDetails = (quiz) => {
         const submissions = JSON.parse(localStorage.getItem(`quiz_submissions_${quiz.id}`) || '[]');
         setViewingSubmissions(submissions);
         setSelectedQuiz(quiz);
     };
 
-    // UPDATED: Release Results Logic
     const handleReleaseResults = (quizId) => {
-<<<<<<< HEAD
-        // 1. Update Submissions (So students can see their specific score/answers)
-=======
->>>>>>> New-Feature
         const submissions = JSON.parse(localStorage.getItem(`quiz_submissions_${quizId}`) || '[]');
         if (submissions.length > 0) {
             const updatedSubmissions = submissions.map(sub => ({ ...sub, isReleased: true }));
             localStorage.setItem(`quiz_submissions_${quizId}`, JSON.stringify(updatedSubmissions));
         }
-<<<<<<< HEAD
-
-        // 2. CRITICAL: Update Main Quiz Object (To BLOCK new students)
-        const updatedQuizzes = allQuizzes.map(q => 
-            q.id === quizId ? { ...q, isReleased: true } : q
-        );
-        saveQuizzes(updatedQuizzes); // Save to storage
-        setAllQuizzes(updatedQuizzes); // Update UI state
-
-        setModal({ message: `Results for Quiz ID ${quizId} released. Answers are visible to participants. New students can no longer join.`, type: "success" });
-=======
         const updatedQuizzes = allQuizzes.map(q => q.id === quizId ? { ...q, isReleased: true } : q);
         saveQuizzes(updatedQuizzes); 
         setAllQuizzes(updatedQuizzes); 
         setModal({ message: `Results for Quiz ID ${quizId} released.`, type: "success" });
->>>>>>> New-Feature
     }
 
     // --- UPDATED DELETE HANDLER (Soft Delete) ---
@@ -123,11 +90,6 @@ const InstructorDashboard = ({ setScreen, currentUser, setModal }) => {
             message: "Are you sure you want to delete this quiz? It will be removed from your dashboard, but students will still have access to their results.",
             type: "error",
             onConfirm: () => {
-<<<<<<< HEAD
-                deleteQuiz(quizId);
-                localStorage.removeItem(`quiz_submissions_${quizId}`); // Clean up submissions
-                setAllQuizzes(loadQuizzes()); 
-=======
                 // 1. Soft Delete: Update 'isDeleted' flag instead of removing
                 const updatedQuizzes = allQuizzes.map(q => 
                     q.id === quizId ? { ...q, isDeleted: true } : q
@@ -138,7 +100,6 @@ const InstructorDashboard = ({ setScreen, currentUser, setModal }) => {
                 
                 // 2. IMPORTANT: We do NOT remove `quiz_submissions_${quizId}`
                 // This ensures student history is preserved.
->>>>>>> New-Feature
             }
         });
     };
@@ -222,19 +183,6 @@ const InstructorDashboard = ({ setScreen, currentUser, setModal }) => {
             {/* --- INSTRUCTOR PROFILE MODAL --- */}
             {showProfile && (
                 <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
-<<<<<<< HEAD
-                    <div className="bg-gray-800 p-6 rounded-xl w-full max-w-4xl border border-blue-500 shadow-2xl max-h-[90vh] overflow-y-auto">
-                        <div className="flex justify-between items-center mb-6 border-b border-gray-700 pb-4">
-                            <h2 className="text-2xl font-bold text-blue-300">
-                                Submissions: {selectedQuiz.name}
-                            </h2>
-                            <button 
-                                onClick={() => setSelectedQuiz(null)}
-                                className="px-4 py-2 bg-gray-600 rounded hover:bg-gray-500 text-white"
-                            >
-                                Close
-                            </button>
-=======
                     <div className="bg-gray-800 p-6 rounded-xl w-full max-w-md border border-green-500 shadow-2xl">
                         <h2 className="text-2xl font-bold mb-4 text-green-400">Instructor Profile</h2>
                         
@@ -252,7 +200,6 @@ const InstructorDashboard = ({ setScreen, currentUser, setModal }) => {
                                     <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
                                 </label>
                             )}
->>>>>>> New-Feature
                         </div>
 
                         <div className="space-y-4">
@@ -322,22 +269,10 @@ const InstructorDashboard = ({ setScreen, currentUser, setModal }) => {
                                             <td className="p-3 font-semibold">{sub.studentName}</td>
                                             <td className="p-3 text-green-400 font-bold text-lg">{sub.score} / {sub.totalScore}</td>
                                             <td className="p-3">{formatTimeTaken(sub.timeTaken)}</td>
-                                            <td className={`p-3 font-bold ${sub.violations > 0 ? 'text-red-400' : 'text-gray-400'}`}>
-                                                {sub.violations}
-                                            </td>
-                                            <td className="p-3 text-sm text-gray-400">
-                                                {new Date(sub.submittedAt).toLocaleDateString()}
-                                            </td>
+                                            <td className={`p-3 font-bold ${sub.violations > 0 ? 'text-red-400' : 'text-gray-400'}`}>{sub.violations}</td>
+                                            <td className="p-3 text-sm text-gray-400">{new Date(sub.submittedAt).toLocaleDateString()}</td>
                                             <td className="p-3">
-<<<<<<< HEAD
-                                            <button
-                                                onClick={() => setSelectedSubmission(sub)}
-                                                className="px-3 py-1 bg-blue-600 rounded text-xs font-bold hover:bg-blue-500">
-                                                View Answers
-                                            </button>
-=======
                                                 <button onClick={() => { setSelectedSubmission(sub); setRubricScores({}); }} className="px-3 py-1 bg-blue-600 rounded text-xs font-bold hover:bg-blue-500 shadow">Grade / View</button>
->>>>>>> New-Feature
                                             </td>
                                         </tr>
                                     ))}
@@ -345,16 +280,7 @@ const InstructorDashboard = ({ setScreen, currentUser, setModal }) => {
                             </table>
                         )}
                         <div className="mt-6 flex justify-end">
-<<<<<<< HEAD
-                             {/* UPDATED: Button handles logic for updating main quiz list */}
-                             <button 
-                                onClick={() => { handleReleaseResults(selectedQuiz.id); setSelectedQuiz(null); }}
-                                className={`px-6 py-2 rounded font-bold ${selectedQuiz.isReleased ? 'bg-gray-600 cursor-not-allowed' : 'bg-green-600 hover:bg-green-500'}`}
-                                disabled={selectedQuiz.isReleased}
-                            >
-=======
                              <button onClick={() => { handleReleaseResults(selectedQuiz.id); setSelectedQuiz(null); }} className={`px-6 py-2 rounded font-bold ${selectedQuiz.isReleased ? 'bg-gray-600 cursor-not-allowed' : 'bg-green-600 hover:bg-green-500'}`} disabled={selectedQuiz.isReleased}>
->>>>>>> New-Feature
                                 {selectedQuiz.isReleased ? "Results Released" : "Release All Results"}
                             </button>
                         </div>
@@ -362,58 +288,6 @@ const InstructorDashboard = ({ setScreen, currentUser, setModal }) => {
                 </div>
             )}
             
-<<<<<<< HEAD
-            {/* --- MANUAL ANSWER VIEW/EDIT MODAL --- */}
-            {selectedSubmission && (
-                <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
-                    <div className="bg-gray-800 p-6 rounded-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto border border-green-500">
-                    
-                    <div className="flex justify-between mb-4">
-                        <h2 className="text-xl font-bold text-green-300">
-                        Answers – {selectedSubmission.studentName}
-                        </h2>
-                        <button
-                        onClick={() => setSelectedSubmission(null)}
-                        className="px-3 py-1 bg-gray-600 rounded"
-                        >
-                        Close
-                        </button>
-                    </div>
-
-                    {Object.entries(selectedSubmission.answers || {}).map(([qId, ans], idx) => (
-                        <div key={qId} className="mb-4 p-4 bg-gray-700 rounded">
-                        <p className="font-semibold">Question {idx + 1}</p>
-                        <p className="text-yellow-300 mt-2">Answer:</p>
-                        <p className="text-white">{ans}</p>
-                        </div>
-                    ))}
-
-                    {/* Manual Score Editing */}
-                    <div className="mt-6">
-                        <label className="block mb-2 text-sm text-gray-300">
-                        Manual Score Adjustment
-                        </label>
-                        <input
-                        type="number"
-                        defaultValue={selectedSubmission.score}
-                        className="w-full p-2 rounded bg-gray-600"
-                        onBlur={(e) => {
-                            const updatedScore = Number(e.target.value);
-                            const key = `quiz_submissions_${selectedQuiz.id}`;
-                            const subs = JSON.parse(localStorage.getItem(key) || "[]");
-
-                            const updated = subs.map(s =>
-                            s.studentId === selectedSubmission.studentId
-                                ? { ...s, score: updatedScore }
-                                : s
-                            );
-
-                            localStorage.setItem(key, JSON.stringify(updated));
-                            setViewingSubmissions(updated);
-                        }}
-                        />
-                    </div>
-=======
             {/* --- GRADING MODAL WITH TABLE --- */}
             {selectedSubmission && (
                 <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-4">
@@ -517,29 +391,15 @@ const InstructorDashboard = ({ setScreen, currentUser, setModal }) => {
                                 </tbody>
                             </table>
                         </div>
->>>>>>> New-Feature
                     </div>
                 </div>
             )}
 
-
             <div className="bg-gray-800 p-8 rounded-xl shadow-2xl space-y-6">
                 <h2 className="text-2xl font-semibold border-b pb-4 border-gray-700 text-green-400">Quiz Management</h2>
-<<<<<<< HEAD
-                
-                <button
-                    className="px-6 py-3 bg-blue-600 rounded-lg hover:bg-blue-500 transition-colors font-bold shadow-md flex items-center gap-2"
-                    onClick={() => setScreen("createQuiz")}
-                >
-                    <span className='text-2xl'>+</span> Create New Quiz
-                </button>
-                
-=======
                 <button className="px-6 py-3 bg-blue-600 rounded-lg hover:bg-blue-500 transition-colors font-bold shadow-md flex items-center gap-2" onClick={() => setScreen("createQuiz")}><span className='text-2xl'>+</span> Create New Quiz</button>
->>>>>>> New-Feature
                 <h2 className="text-2xl font-semibold border-b pb-2 border-gray-700 text-green-400 mt-8">Active Quizzes & Monitoring</h2>
                 <p className='text-sm text-gray-400'>Total Students Registered: {totalStudents}</p>
-
                 <div className='overflow-x-auto'>
                     <table className="w-full min-w-[700px] table-auto border-collapse rounded-lg overflow-hidden">
                         <thead>
@@ -547,21 +407,13 @@ const InstructorDashboard = ({ setScreen, currentUser, setModal }) => {
                                 <th className="px-4 py-3 border-b border-gray-600">ID</th>
                                 <th className="px-4 py-3 border-b border-gray-600">Name</th>
                                 <th className="px-4 py-3 border-b border-gray-600">Submissions</th>
-                                <th className="px-4 py-3 border-b border-gray-600">Violations (Total)</th>
+                                <th className="px-4 py-3 border-b border-gray-600">Violations</th>
                                 <th className="px-4 py-3 border-b border-gray-600">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
-<<<<<<< HEAD
-                            {allQuizzes.length === 0 && (
-                                <tr><td colSpan="5" className='text-center p-4 text-gray-400'>No quizzes created yet.</td></tr>
-                            )}
-                            
-                            {allQuizzes.map(quiz => {
-=======
                             {/* FILTER: Show only quizzes NOT marked as deleted */}
                             {allQuizzes.filter(q => !q.isDeleted).map(quiz => {
->>>>>>> New-Feature
                                 const stats = getQuizStats(quiz.id);
                                 return (
                                     <tr key={quiz.id} className="border-b border-gray-700 hover:bg-gray-700 transition-colors">
@@ -570,30 +422,6 @@ const InstructorDashboard = ({ setScreen, currentUser, setModal }) => {
                                         <td className="px-4 py-3">{stats.totalSubmissions} / {totalStudents}</td>
                                         <td className={`px-4 py-3 font-bold ${stats.totalViolations > 0 ? 'text-red-400' : 'text-green-400'}`}>{stats.totalViolations}</td>
                                         <td className="px-4 py-3 flex gap-2">
-<<<<<<< HEAD
-                                            {/* NEW: View Details Button */}
-                                            <button 
-                                                onClick={() => handleViewDetails(quiz)}
-                                                className="px-3 py-1 text-xs rounded font-bold bg-blue-600 hover:bg-blue-500 text-white transition-colors"
-                                            >
-                                                View
-                                            </button>
-                                            
-                                            <button 
-                                                onClick={() => handleReleaseResults(quiz.id)}
-                                                className={`px-3 py-1 text-xs rounded font-bold ${stats.isReleased ? 'bg-gray-600 cursor-not-allowed' : 'bg-green-600 hover:bg-green-500'}`}
-                                                disabled={stats.isReleased || stats.totalSubmissions === 0}
-                                            >
-                                                {stats.isReleased ? 'Released' : 'Release'}
-                                            </button>
-                                            
-                                            <button 
-                                                onClick={() => handleDeleteQuiz(quiz.id)}
-                                                className="px-3 py-1 text-xs rounded font-bold bg-red-600 hover:bg-red-500 text-white transition-colors"
-                                            >
-                                                Delete
-                                            </button>
-=======
                                             <button onClick={() => handleViewDetails(quiz)} className="px-3 py-1 text-xs rounded font-bold bg-blue-600 hover:bg-blue-500 text-white transition-colors">View</button>
                                             
                                             <button onClick={() => handleEditQuiz(quiz.id)} className="px-3 py-1 text-xs rounded font-bold bg-yellow-600 hover:bg-yellow-500 text-white transition-colors">Edit</button>
@@ -601,7 +429,6 @@ const InstructorDashboard = ({ setScreen, currentUser, setModal }) => {
                                             <button onClick={() => handleReleaseResults(quiz.id)} className={`px-3 py-1 text-xs rounded font-bold ${stats.isReleased ? 'bg-gray-600 cursor-not-allowed' : 'bg-green-600 hover:bg-green-500'}`} disabled={stats.isReleased || stats.totalSubmissions === 0}>{stats.isReleased ? 'Released' : 'Release'}</button>
                                             
                                             <button onClick={() => handleDeleteQuiz(quiz.id)} className="px-3 py-1 text-xs rounded font-bold bg-red-600 hover:bg-red-500 text-white transition-colors">Delete</button>
->>>>>>> New-Feature
                                         </td>
                                     </tr>
                                 );
