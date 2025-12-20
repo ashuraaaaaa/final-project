@@ -89,16 +89,18 @@ const QuizPage = ({ setScreen, setModal, activeQuizId }) => {
 
     const currentUser = loadCurrentUser(); 
 
-    const newSubmission = {
-        studentId: currentUser?.id,
-        studentName: currentUser?.fullName || currentUser?.username || "Unknown Student",
-        score: finalScore,
-        totalScore: totalScore,
-        violations: violations,
-        timeTaken: timeElapsed,
-        isReleased: false,
-        submittedAt: new Date().toISOString()
-    };
+   const newSubmission = {
+  studentId: currentUser?.id,
+  studentName: currentUser?.fullName || currentUser?.username,
+  answers: answers, // ✅ STORE ANSWERS
+  score: finalScore,
+  totalScore: totalScore,
+  violations: violations,
+  timeTaken: timeElapsed,
+  isReleased: false,
+  submittedAt: new Date().toISOString()
+};
+
 
     // --- CRITICAL UPDATE: Save to Array (Don't overwrite other students) ---
     const storageKey = `quiz_submissions_${activeQuizId}`; // Key specific to this quiz

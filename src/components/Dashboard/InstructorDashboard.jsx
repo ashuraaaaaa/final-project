@@ -3,6 +3,7 @@ import { clearCurrentUser, loadUsers } from '../../utils/storage.js';
 import { loadQuizzes, deleteQuiz } from '../../utils/quizStorage.js'; 
 
 const InstructorDashboard = ({ setScreen, currentUser, setModal }) => {
+    const [selectedSubmission, setSelectedSubmission] = useState(null);
     const [allQuizzes, setAllQuizzes] = useState([]);
     const [totalStudents, setTotalStudents] = useState(0);
     
@@ -114,6 +115,7 @@ const InstructorDashboard = ({ setScreen, currentUser, setModal }) => {
                                         <th className="p-3">Time Taken</th>
                                         <th className="p-3">Violations</th>
                                         <th className="p-3">Date</th>
+                                        <th className="p-3">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -127,6 +129,13 @@ const InstructorDashboard = ({ setScreen, currentUser, setModal }) => {
                                             </td>
                                             <td className="p-3 text-sm text-gray-400">
                                                 {new Date(sub.submittedAt).toLocaleDateString()}
+                                            </td>
+                                            <td className="p-3">
+                                            <button
+                                                onClick={() => setSelectedSubmission(sub)}
+                                                className="px-3 py-1 bg-blue-600 rounded text-xs font-bold hover:bg-blue-500">
+                                                View Answers
+                                            </button>
                                             </td>
                                         </tr>
                                     ))}
@@ -146,6 +155,59 @@ const InstructorDashboard = ({ setScreen, currentUser, setModal }) => {
                     </div>
                 </div>
             )}
+            {selectedSubmission && (
+  <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+    <div className="bg-gray-800 p-6 rounded-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto border border-green-500">
+      
+      <div className="flex justify-between mb-4">
+        <h2 className="text-xl font-bold text-green-300">
+          Answers – {selectedSubmission.studentName}
+        </h2>
+        <button
+          onClick={() => setSelectedSubmission(null)}
+          className="px-3 py-1 bg-gray-600 rounded"
+        >
+          Close
+        </button>
+      </div>
+
+      {Object.entries(selectedSubmission.answers || {}).map(([qId, ans], idx) => (
+        <div key={qId} className="mb-4 p-4 bg-gray-700 rounded">
+          <p className="font-semibold">Question {idx + 1}</p>
+          <p className="text-yellow-300 mt-2">Answer:</p>
+          <p className="text-white">{ans}</p>
+        </div>
+      ))}
+
+      {/* Manual Score Editing */}
+      <div className="mt-6">
+        <label className="block mb-2 text-sm text-gray-300">
+          Manual Score Adjustment
+        </label>
+        <input
+          type="number"
+          defaultValue={selectedSubmission.score}
+          className="w-full p-2 rounded bg-gray-600"
+          onBlur={(e) => {
+            const updatedScore = Number(e.target.value);
+            const key = `quiz_submissions_${selectedQuiz.id}`;
+            const subs = JSON.parse(localStorage.getItem(key) || "[]");
+
+            const updated = subs.map(s =>
+              s.studentId === selectedSubmission.studentId
+                ? { ...s, score: updatedScore }
+                : s
+            );
+
+            localStorage.setItem(key, JSON.stringify(updated));
+            setViewingSubmissions(updated);
+          }}
+        />
+      </div>
+    </div>
+  </div>
+)}
+
 
             <div className="bg-gray-800 p-8 rounded-xl shadow-2xl space-y-6">
                 <h2 className="text-2xl font-semibold border-b pb-4 border-gray-700 text-green-400">Quiz Management</h2>
