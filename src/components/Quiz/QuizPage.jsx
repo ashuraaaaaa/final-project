@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { findQuizById } from '../../utils/quizStorage.js';
-import { loadCurrentUser } from '../../utils/storage.js'; // Import to identify the student
+import { loadCurrentUser } from '../../utils/storage.js'; 
 
 const QuizPage = ({ setScreen, setModal, activeQuizId }) => {
   const [quizData, setQuizData] = useState(null);
@@ -13,31 +13,64 @@ const QuizPage = ({ setScreen, setModal, activeQuizId }) => {
   const timerRef = useRef(null);
   const isViolatingRef = useRef(false);
 
-  // --- 1. Load Quiz Data ---
+  // --- SECURITY: PREVENT RE-TAKE ON RELOAD ---
+  useEffect(() => {
+    const currentUser = loadCurrentUser();
+    const storageKey = `quiz_submissions_${activeQuizId}`;
+    const existingSubmissions = JSON.parse(localStorage.getItem(storageKey) || '[]');
+    
+    // Check if this student ID is already in the submissions list
+    const hasTaken = existingSubmissions.some(sub => sub.studentId === currentUser?.id);
+
+    if (hasTaken) {
+        setModal({ 
+            message: "Access Denied: You have already attempted this quiz. Retakes are not allowed.", 
+            type: "error",
+            onConfirm: () => setScreen("student") // Force redirect on click
+        });
+        setScreen("student"); 
+    }
+  }, [activeQuizId, setScreen, setModal]);
+
+  // --- Load Quiz Data ---
   useEffect(() => {
     const data = findQuizById(activeQuizId);
     if (data) {
         setQuizData(data);
         setTimeLeft(data.duration * 60); 
     } else {
-        // Handle case where quiz might have been deleted by instructor
-        setModal({ message: "Error: Quiz not found. It may have been deleted by the instructor.", type: "error" });
+        setModal({ message: "Error: Quiz not found.", type: "error" });
         setScreen("student");
     }
   }, [activeQuizId, setScreen, setModal]);
   
-  // --- 2. Timer & Silent Violation Monitoring ---
+  // --- VIOLATION LOGIC ---
+  useEffect(() => {
+    if (isSubmitted) return;
+
+    if (violations === 2) {
+        setModal({
+            message: "⚠️ WARNING: You have switched tabs 2 times! This is your final warning. If you switch again, your quiz will be automatically submitted.",
+            type: "warning"
+        });
+    }
+
+    if (violations >= 3) {
+        handleSubmit(true); 
+    }
+  }, [violations, isSubmitted]);
+
+  // --- Timer & Silent Detection ---
   useEffect(() => {
     if (!quizData || isSubmitted) {
       clearInterval(timerRef.current);
       return;
     }
 
-    // Timer logic
     timerRef.current = setInterval(() => {
       setTimeLeft(prevTime => {
         if (prevTime <= 1) {
-          handleSubmit(true); // Auto-submit when time is up
+          handleSubmit(true); 
           return 0;
         }
         return prevTime - 1;
@@ -45,15 +78,11 @@ const QuizPage = ({ setScreen, setModal, activeQuizId }) => {
       setTimeElapsed(prev => prev + 1);
     }, 1000);
 
-    // Silent Tab Change Detection
     const handleVisibilityChange = () => {
       if (document.hidden) {
         if (isViolatingRef.current) return;
         isViolatingRef.current = true;
-        
-        // Increment violation counter silently (no modal)
         setViolations(prevV => prevV + 1);
-
       } else {
         isViolatingRef.current = false;
       }
@@ -75,12 +104,12 @@ const QuizPage = ({ setScreen, setModal, activeQuizId }) => {
 
   const handleSelect = (qId, option) => setAnswers({ ...answers, [qId]: option });
   
-  // --- 3. Submission Logic (Saves to List) ---
   const handleSubmit = (isAuto = false) => {
+    if (isSubmitted) return; 
+
     let finalScore = 0;
     const totalScore = quizData.questions.reduce((sum, q) => sum + q.score, 0);
 
-    // Calculate Score
     quizData.questions.forEach(q => {
       if (q.type !== 'Essay' && q.type !== 'Short Answer' && q.answer === answers[`q_${q.id || q.index}`]) {
         finalScore += q.score;
@@ -90,41 +119,45 @@ const QuizPage = ({ setScreen, setModal, activeQuizId }) => {
     const currentUser = loadCurrentUser(); 
 
     const newSubmission = {
-        studentId: currentUser?.id,
-        studentName: currentUser?.fullName || currentUser?.username || "Unknown Student",
-        score: finalScore,
-        totalScore: totalScore,
-        violations: violations,
-        timeTaken: timeElapsed,
-        isReleased: false,
-        submittedAt: new Date().toISOString()
+      studentId: currentUser?.id,
+      studentName: currentUser?.fullName || currentUser?.username,
+      answers: answers, 
+      score: finalScore,
+      totalScore: totalScore,
+      violations: violations,
+      timeTaken: timeElapsed,
+      isReleased: false,
+      submittedAt: new Date().toISOString()
     };
 
-    // --- CRITICAL UPDATE: Save to Array (Don't overwrite other students) ---
-    const storageKey = `quiz_submissions_${activeQuizId}`; // Key specific to this quiz
-    
-    // 1. Get existing list of students who took this quiz
+    const storageKey = `quiz_submissions_${activeQuizId}`; 
     const existingSubmissions = JSON.parse(localStorage.getItem(storageKey) || '[]');
-    
-    // 2. Remove any previous attempt by THIS student (to avoid duplicates)
     const otherSubmissions = existingSubmissions.filter(sub => sub.studentId !== currentUser.id);
-    
-    // 3. Add the new submission to the list
     otherSubmissions.push(newSubmission);
-    
-    // 4. Save back to storage
     localStorage.setItem(storageKey, JSON.stringify(otherSubmissions));
-    // -----------------------------------------------------------------------
 
     setIsSubmitted(true);
     
-    const submitMessage = isAuto 
-        ? "Time expired. Quiz auto-submitted." 
-        : "Quiz submitted successfully!";
+    let submitMessage = "Quiz submitted successfully!";
+    let modalType = "info";
+    let onConfirmAction = null;
+
+    if (isAuto) {
+        if (violations >= 3) {
+            submitMessage = "Quiz TERMINATED due to security violations (3 tabs opened).";
+            modalType = "error";
+            // FIX: Redirect to dashboard immediately when they click OK on this specific error
+            onConfirmAction = () => setScreen("student"); 
+        } else {
+            submitMessage = "Time expired. Quiz auto-submitted.";
+            modalType = "warning";
+        }
+    }
 
     setModal({ 
-        message: `${submitMessage} Your answers have been submitted. Please wait for the instructor to release the results.`, 
-        type: "info" 
+        message: `${submitMessage} Your answers have been recorded.`, 
+        type: modalType,
+        onConfirm: onConfirmAction // Pass the redirect action
     });
   };
 
@@ -150,7 +183,8 @@ const QuizPage = ({ setScreen, setModal, activeQuizId }) => {
         <button
           className="px-4 py-2 bg-red-600 rounded-lg hover:bg-red-700 transition-colors font-bold shadow-md"
           onClick={handleBack}
-          disabled={isViolatingRef.current}
+          // FIX: Only disable if NOT submitted. Once submitted, ALWAYS enable so they can leave.
+          disabled={!isSubmitted && isViolatingRef.current}
         >
           {isSubmitted ? 'Back to Dashboard' : 'End Quiz'}
         </button>
@@ -159,7 +193,9 @@ const QuizPage = ({ setScreen, setModal, activeQuizId }) => {
       <div className="w-full max-w-xl bg-gray-800 p-8 rounded-xl shadow-2xl space-y-8">
         <div className="flex justify-between text-lg font-medium border-b pb-4 border-gray-700">
           <span className='text-gray-400'>Time Remaining: {formatTime(timeLeft)}</span>
-          <span className={`font-bold ${violations > 0 ? 'text-red-500' : 'text-yellow-400'}`}>Violations Logged: {violations}</span>
+          <span className={`font-bold ${violations > 0 ? 'text-red-500' : 'text-yellow-400'}`}>
+             Violations: {violations} / 3
+          </span>
         </div>
 
         {quizData.questions.map((q, index) => {
@@ -211,8 +247,8 @@ const QuizPage = ({ setScreen, setModal, activeQuizId }) => {
           </button>
         ) : (
              <div className="text-center p-4 bg-gray-700 rounded-lg shadow-inner">
-                <p className='text-2xl font-bold'>Your Answers Have Been Submitted</p>
-                <p className='text-sm text-yellow-400 mt-2'>Please wait for the instructor to release the results.</p>
+                <p className='text-2xl font-bold'>Quiz Submitted</p>
+                <p className='text-sm text-yellow-400 mt-2'>Retakes are not allowed.</p>
              </div>
         )}
       </div>
