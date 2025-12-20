@@ -6,7 +6,7 @@ const StudentDashboard = ({ setScreen, currentUser, setCurrentUser, setModal, se
   const [joinedQuizzes, setJoinedQuizzes] = useState([]);
   const [quizIdEntry, setQuizIdEntry] = useState(''); 
   const [showProfile, setShowProfile] = useState(false); 
-
+//Hello sir dhan its me
   const [editMode, setEditMode] = useState(false);
   const [profileData, setProfileData] = useState({ ...currentUser });
 
@@ -24,6 +24,7 @@ const StudentDashboard = ({ setScreen, currentUser, setCurrentUser, setModal, se
     clearCurrentUser(); 
     setScreen("login");
   };
+
 
   const handleSaveProfile = () => {
     const users = loadUsers();
