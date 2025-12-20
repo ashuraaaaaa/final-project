@@ -6,13 +6,12 @@ const StudentDashboard = ({ setScreen, currentUser, setCurrentUser, setModal, se
   const [joinedQuizzes, setJoinedQuizzes] = useState([]);
   const [quizIdEntry, setQuizIdEntry] = useState(''); 
   const [showProfile, setShowProfile] = useState(false); 
-//Hello sir dhan its me
   const [editMode, setEditMode] = useState(false);
   const [profileData, setProfileData] = useState({ ...currentUser });
 
   useEffect(() => {
     if (currentUser && currentUser.id) {
-        // FIX: Load quizzes ONLY for this specific user ID
+        // Load quizzes ONLY for this specific user ID
         const joinedIds = loadJoinedQuizzes(currentUser.id);
         const quizzes = joinedIds.map(id => findQuizById(id)).filter(quiz => quiz !== undefined);
         setJoinedQuizzes(quizzes);
@@ -24,7 +23,6 @@ const StudentDashboard = ({ setScreen, currentUser, setCurrentUser, setModal, se
     clearCurrentUser(); 
     setScreen("login");
   };
-
 
   const handleSaveProfile = () => {
     const users = loadUsers();
@@ -40,24 +38,31 @@ const StudentDashboard = ({ setScreen, currentUser, setCurrentUser, setModal, se
 
   // Helper to find THIS student's specific submission for a quiz
   const getMySubmission = (quizId) => {
-      // Load the list of ALL students who took this quiz
       const allSubmissions = JSON.parse(localStorage.getItem(`quiz_submissions_${quizId}`) || '[]');
-      // Find the one that belongs to the current user
       return allSubmissions.find(sub => sub.studentId === currentUser.id);
   };
 
-  const handleStartQuiz = (quizId, quizName) => {
+  const handleStartQuiz = (quizId) => {
     const mySubmission = getMySubmission(quizId);
     
-    // Retake Prevention Logic
+    // If the student already submitted
     if (mySubmission) {
-        const message = mySubmission.isReleased 
-            ? `You have already taken this quiz. Your score: ${mySubmission.score}/${mySubmission.totalScore}.` 
-            : `You have already taken this quiz. Results are pending.`; 
-        setModal({ message: message, type: "info" });
+        // If results are released, allow them to enter "Review Mode"
+        if (mySubmission.isReleased) {
+            setActiveQuizId(quizId);
+            setScreen("quiz"); // The QuizPage will detect isReleased and show answers
+            return;
+        }
+        
+        // If results are NOT released, prevent entry
+        setModal({ 
+            message: "You have already taken this quiz. Results are still pending release by the instructor.", 
+            type: "info" 
+        });
         return;
     }
     
+    // If not submitted yet, start the quiz normally
     setActiveQuizId(quizId);
     setScreen("quiz");
   }
@@ -70,16 +75,19 @@ const StudentDashboard = ({ setScreen, currentUser, setCurrentUser, setModal, se
         return;
     }
     
-    // FIX: Join specifically for this user
     joinQuiz(quizToStart.id, currentUser.id); 
     
-    setJoinedQuizzes(prev => [...prev, quizToStart]); 
+    // Update local state so the list refreshes
+    if (!joinedQuizzes.find(q => q.id === quizToStart.id)) {
+        setJoinedQuizzes(prev => [...prev, quizToStart]); 
+    }
+    
     setQuizIdEntry('');
     
-    // Check if they already took it before auto-starting
+    // Auto-navigate if not submitted
     const mySubmission = getMySubmission(quizToStart.id);
     if (!mySubmission) {
-        handleStartQuiz(quizToStart.id, quizToStart.name);
+        handleStartQuiz(quizToStart.id);
     } else {
         setModal({ message: "You have joined this quiz, but you have already taken it.", type: "info" });
     }
@@ -115,7 +123,7 @@ const StudentDashboard = ({ setScreen, currentUser, setCurrentUser, setModal, se
                     <div>
                         <span className="text-gray-400 text-sm">Full Name</span>
                         {editMode ? 
-                            <input className="w-full p-2 rounded bg-gray-700" value={profileData.fullName} onChange={e => setProfileData({...profileData, fullName: e.target.value})} /> : 
+                            <input className="w-full p-2 rounded bg-gray-700 border border-blue-500" value={profileData.fullName} onChange={e => setProfileData({...profileData, fullName: e.target.value})} /> : 
                             <p className="text-lg font-semibold">{currentUser.fullName}</p>
                         }
                     </div>
@@ -126,7 +134,7 @@ const StudentDashboard = ({ setScreen, currentUser, setCurrentUser, setModal, se
                                 <select 
                                     value={profileData.grade} 
                                     onChange={(e) => setProfileData({...profileData, grade: e.target.value})} 
-                                    className="w-full p-2 rounded bg-gray-700"
+                                    className="w-full p-2 rounded bg-gray-700 border border-blue-500"
                                 >
                                     <option value="1st Year">1st Year</option>
                                     <option value="2nd Year">2nd Year</option>
@@ -137,16 +145,16 @@ const StudentDashboard = ({ setScreen, currentUser, setCurrentUser, setModal, se
                         </div>
                         <div>
                             <span className="text-gray-400 text-sm">Section</span>
-                            {editMode ? <input className="w-full p-2 rounded bg-gray-700" value={profileData.section} onChange={e => setProfileData({...profileData, section: e.target.value})} /> : <p>{currentUser.section}</p>}
+                            {editMode ? <input className="w-full p-2 rounded bg-gray-700 border border-blue-500" value={profileData.section} onChange={e => setProfileData({...profileData, section: e.target.value})} /> : <p>{currentUser.section}</p>}
                         </div>
                     </div>
                     <div>
                         <span className="text-gray-400 text-sm">Student Number</span>
-                        {editMode ? <input className="w-full p-2 rounded bg-gray-700" value={profileData.studentNumber} onChange={e => setProfileData({...profileData, studentNumber: e.target.value})} /> : <p>{currentUser.studentNumber}</p>}
+                        {editMode ? <input className="w-full p-2 rounded bg-gray-700 border border-blue-500" value={profileData.studentNumber} onChange={e => setProfileData({...profileData, studentNumber: e.target.value})} /> : <p>{currentUser.studentNumber}</p>}
                     </div>
                     <div>
                         <span className="text-gray-400 text-sm">Contact</span>
-                        {editMode ? <input className="w-full p-2 rounded bg-gray-700" value={profileData.contact} onChange={e => setProfileData({...profileData, contact: e.target.value})} /> : <p>{currentUser.contact}</p>}
+                        {editMode ? <input className="w-full p-2 rounded bg-gray-700 border border-blue-500" value={profileData.contact} onChange={e => setProfileData({...profileData, contact: e.target.value})} /> : <p>{currentUser.contact}</p>}
                     </div>
                 </div>
 
@@ -177,37 +185,42 @@ const StudentDashboard = ({ setScreen, currentUser, setCurrentUser, setModal, se
                 onChange={(e) => setQuizIdEntry(e.target.value)}
                 className="flex-1 p-3 rounded bg-gray-700 text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:outline-none"
             />
-            <button onClick={handleQuizEntry} className="px-6 py-3 bg-green-600 rounded-lg hover:bg-green-500 font-bold shadow-md">Join & Start</button>
+            <button onClick={handleQuizEntry} className="px-6 py-3 bg-green-600 rounded-lg hover:bg-green-500 font-bold shadow-md transition-all active:scale-95">Join & Start</button>
         </div>
         
         <h2 className="text-2xl font-semibold border-b pb-2 border-gray-700 text-blue-400">My Joined Quizzes</h2>
         <div className="flex flex-col gap-4">
           {joinedQuizzes.length === 0 && <div className='text-center p-6 text-gray-400 border border-gray-700 rounded-lg'>Enter a Quiz ID above to see it here.</div>}
           {joinedQuizzes.map(quiz => {
-              // FIX: Look for THIS user's submission only
               const mySubmission = getMySubmission(quiz.id);
-              
               const isSubmitted = !!mySubmission;
               const isReleased = mySubmission?.isReleased;
               const totalScore = quiz.questions.reduce((sum, q) => sum + q.score, 0);
+              
+              // Color shifts: Blue (Start), Yellow (Pending), Green (Released/Review)
               const statusColor = isSubmitted ? (isReleased ? 'green' : 'yellow') : 'blue';
               
               const resultText = () => {
                   if (!isSubmitted) return `${quiz.questions.length} Questions | ${quiz.duration} minutes`;
-                  if (isReleased) return `Score: ${mySubmission.score}/${totalScore} | Released`;
-                  return 'Status: Submitted, Results Pending';
+                  if (isReleased) return `Final Score: ${mySubmission.score}/${totalScore}`;
+                  return 'Status: Submitted (Waiting for Score)';
               }
               
               return (
-                  <div key={quiz.id} className={`flex justify-between items-center p-4 border-l-4 border-${statusColor}-500 bg-gray-700 rounded-lg transition-colors shadow-lg`}>
+                  <div key={quiz.id} className={`flex justify-between items-center p-4 border-l-4 border-${statusColor}-500 bg-gray-700 rounded-lg transition-all shadow-lg hover:bg-gray-650`}>
                     <div className='flex flex-col'>
-                        <span className="font-bold text-lg">{quiz.name} (ID: {quiz.id})</span>
-                        <span className={`text-sm text-${statusColor}-400`}>{resultText()}</span>
+                        <span className="font-bold text-lg">{quiz.name} <small className="text-gray-500 font-normal">#{quiz.id}</small></span>
+                        <span className={`text-sm ${isReleased ? 'text-green-400 font-bold' : `text-${statusColor}-400`}`}>
+                            {resultText()}
+                        </span>
                     </div>
                     <button 
-                        className={`px-5 py-2 rounded-lg font-bold transition-colors shadow-md ${isSubmitted ? 'bg-gray-600 opacity-50 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-500'}`}
+                        className={`px-5 py-2 rounded-lg font-bold transition-all shadow-md 
+                            ${isSubmitted && !isReleased 
+                                ? 'bg-gray-600 opacity-50 cursor-not-allowed' 
+                                : 'bg-blue-600 hover:bg-blue-500 active:scale-95'}`}
                         disabled={isSubmitted && !isReleased}
-                        onClick={() => handleStartQuiz(quiz.id, quiz.name)}
+                        onClick={() => handleStartQuiz(quiz.id)}
                     >
                       {isSubmitted ? (isReleased ? 'View Score' : 'Submitted') : 'Start'}
                     </button>
