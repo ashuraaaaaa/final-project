@@ -404,11 +404,11 @@ const InstructorDashboard = ({ setScreen, currentUser, setModal }) => {
                     <table className="w-full min-w-[700px] table-auto border-collapse rounded-lg overflow-hidden">
                         <thead>
                             <tr className="bg-gray-700 text-left">
-                                <th className="px-4 py-3 border-b border-gray-600">ID</th>
-                                <th className="px-4 py-3 border-b border-gray-600">Name</th>
-                                <th className="px-4 py-3 border-b border-gray-600">Submissions</th>
-                                <th className="px-4 py-3 border-b border-gray-600">Violations</th>
-                                <th className="px-4 py-3 border-b border-gray-600">Actions</th>
+                                <th className="px-4 py-3 border-b border-white-600">ID</th>
+                                <th className="px-4 py-3 border-b border-white-600">Name</th>
+                                <th className="px-4 py-3 border-b border-white-600">Submissions</th>
+                                <th className="px-4 py-3 border-b border-white-600">Violations</th>
+                                <th className="px-4 py-3 border-b border-white-600">Actions</th>
                             </tr>
                         </thead>
                         <tbody>

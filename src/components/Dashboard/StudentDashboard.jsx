@@ -7,7 +7,9 @@ const StudentDashboard = ({ setScreen, currentUser, setCurrentUser, setModal, se
   const [joinedQuizzes, setJoinedQuizzes] = useState([]);
   const [quizIdEntry, setQuizIdEntry] = useState(''); 
   const [editMode, setEditMode] = useState(false);
-  const [profileData, setProfileData] = useState({ ...currentUser });
+  
+  // Use local state for profile data so we don't trigger App re-renders constantly
+  const [profileData, setProfileData] = useState(currentUser || {});
 
   const [activeModal, setActiveModal] = useState(null); 
   const [showInstructions, setShowInstructions] = useState(false);
@@ -18,23 +20,22 @@ const StudentDashboard = ({ setScreen, currentUser, setCurrentUser, setModal, se
   const [pendingQuizzes, setPendingQuizzes] = useState([]);
   const [completedQuizzes, setCompletedQuizzes] = useState([]);
 
-  // --- 1. Load Data & Status Check ---
+  // --- 1. Load Data safely ---
   useEffect(() => {
-    // Force Load Fresh User Data
+    // We fetch fresh data to ensure we have the latest quiz history
     const freshUser = loadCurrentUser(); 
-    
-    if (freshUser && freshUser.id) {
-        if (JSON.stringify(freshUser) !== JSON.stringify(currentUser)) {
-            setCurrentUser(freshUser);
-        }
+    const userToUse = freshUser || currentUser;
 
-        const joinedIds = loadJoinedQuizzes(freshUser.id);
+    if (userToUse && userToUse.id) {
+        // We DO NOT call setCurrentUser here anymore to prevent the loop.
+        // We just use the data locally to build the lists.
+
+        const joinedIds = loadJoinedQuizzes(userToUse.id);
         
         const validQuizzes = [];
         const validIds = [];
         let foundGhostData = false;
 
-        // Cleanup Check
         joinedIds.forEach(id => {
             const quiz = findQuizById(id);
             if (quiz) {
@@ -46,55 +47,47 @@ const StudentDashboard = ({ setScreen, currentUser, setCurrentUser, setModal, se
         });
 
         if (foundGhostData) {
-            localStorage.setItem(`app_joined_quizzes_${freshUser.id}`, JSON.stringify(validIds));
+            localStorage.setItem(`app_joined_quizzes_${userToUse.id}`, JSON.stringify(validIds));
         }
 
         const pending = [];
         const completed = [];
 
         validQuizzes.forEach(quiz => {
-            // --- FAILSAFE: Check Submission Database Directly ---
-            // 1. Try finding in User Profile first
-            let takenRecord = freshUser.takenQuizzes?.find(q => String(q.quizId) === String(quiz.id));
+            // Check Profile history
+            let takenRecord = userToUse.takenQuizzes?.find(q => String(q.quizId) === String(quiz.id));
 
-            // 2. If not found in profile, look in the master submission file (The "Truth")
+            // Double check global submissions (Failsafe)
             if (!takenRecord) {
                 const allSubmissions = JSON.parse(localStorage.getItem(`quiz_submissions_${quiz.id}`) || '[]');
-                const directMatch = allSubmissions.find(sub => String(sub.studentId) === String(freshUser.id));
+                const directMatch = allSubmissions.find(sub => String(sub.studentId) === String(userToUse.id));
                 
                 if (directMatch) {
-                    // Found it! Create a record from the raw data
                     takenRecord = {
                         quizId: quiz.id,
                         quizTitle: quiz.name,
                         score: directMatch.score,
                         totalScore: directMatch.totalScore,
                         dateTaken: directMatch.submittedAt,
-                        isReleased: directMatch.isReleased, // This is the key status
+                        isReleased: directMatch.isReleased,
                         quizVersionTaken: directMatch.quizVersionTaken
                     };
                 }
             }
             
-            // --- SORTING LOGIC ---
             if (takenRecord) {
-                // IT IS TAKEN.
                 const hasNewVersion = quiz.lastUpdated > (takenRecord.quizVersionTaken || 0);
 
                 if (hasNewVersion) {
-                    // Update available -> Pending List (Purple Button)
                     pending.push({ ...quiz, isRetake: true });
                 } 
                 else if (takenRecord.isReleased) {
-                    // Released -> Completed Tab (Green Check)
                     completed.push({ ...quiz, ...takenRecord });
                 } 
                 else {
-                    // Taken BUT Not Released -> Pending List (Yellow Button)
                     pending.push({ ...quiz, isWaiting: true });
                 }
             } else {
-                // Not Taken -> Pending List (Blue Button)
                 pending.push(quiz);
             }
         });
@@ -102,14 +95,17 @@ const StudentDashboard = ({ setScreen, currentUser, setCurrentUser, setModal, se
         setPendingQuizzes(pending.reverse());
         setCompletedQuizzes(completed.sort((a, b) => new Date(b.dateTaken) - new Date(a.dateTaken)));
         setJoinedQuizzes(validQuizzes);
-        setProfileData({ ...freshUser }); 
+        
+        // Update local profile data form only
+        setProfileData({ ...userToUse }); 
     }
-  }, [currentUser?.id, activeModal]); // Added activeModal so it refreshes when you close the history
+  }, [activeModal]); // Removed 'currentUser' from dependency array to stop the loop
 
   // --- Handlers ---
   const handleLogout = () => {
     clearCurrentUser(); 
-    setScreen("login");
+    // In router mode, we reload or redirect
+    window.location.href = "/"; 
   };
 
   const handleSaveProfile = () => {
@@ -117,7 +113,10 @@ const StudentDashboard = ({ setScreen, currentUser, setCurrentUser, setModal, se
     const updatedUsers = users.map(u => u.id === currentUser.id ? profileData : u);
     saveUsers(updatedUsers);
     saveCurrentUser(profileData);
+    
+    // THIS is the only time we update the global App state
     setCurrentUser(profileData); 
+    
     setEditMode(false);
     setActiveModal(null);
     setModal({ message: "Profile updated successfully!", type: "success" });
@@ -139,16 +138,13 @@ const StudentDashboard = ({ setScreen, currentUser, setCurrentUser, setModal, se
       setModal({ message: "Quiz removed from your list.", type: "success" });
   };
 
-  // --- Quiz Entry & Start ---
   const handleStartQuiz = (quizId, isRetake = false) => {
-    const freshUser = loadCurrentUser(); 
-    const takenRecord = freshUser.takenQuizzes?.find(q => String(q.quizId) === String(quizId));
+    const userToUse = loadCurrentUser() || currentUser;
+    const takenRecord = userToUse.takenQuizzes?.find(q => String(q.quizId) === String(quizId));
     
-    // Also check direct submissions just in case
     const allSubmissions = JSON.parse(localStorage.getItem(`quiz_submissions_${quizId}`) || '[]');
-    const directMatch = allSubmissions.find(sub => String(sub.studentId) === String(currentUser.id));
+    const directMatch = allSubmissions.find(sub => String(sub.studentId) === String(userToUse.id));
     
-    // Combine logic
     const record = takenRecord || directMatch;
     const isReleased = record?.isReleased;
 
@@ -165,12 +161,12 @@ const StudentDashboard = ({ setScreen, currentUser, setCurrentUser, setModal, se
     if (isRetake) {
         const storageKey = `quiz_submissions_${quizId}`;
         const existing = JSON.parse(localStorage.getItem(storageKey) || '[]');
-        const filtered = existing.filter(sub => sub.studentId !== currentUser.id);
+        const filtered = existing.filter(sub => sub.studentId !== userToUse.id);
         localStorage.setItem(storageKey, JSON.stringify(filtered));
     }
 
     setActiveQuizId(quizId);
-    setScreen("quiz");
+    setScreen("quiz"); // This assumes App.jsx handles "quiz" screen render
   }
 
   const handleQuizEntry = () => {
@@ -190,9 +186,9 @@ const StudentDashboard = ({ setScreen, currentUser, setCurrentUser, setModal, se
 
     setQuizIdEntry('');
     
-    // Auto start check
+    const userToUse = loadCurrentUser() || currentUser;
     const allSubmissions = JSON.parse(localStorage.getItem(`quiz_submissions_${quizToStart.id}`) || '[]');
-    const directMatch = allSubmissions.find(sub => String(sub.studentId) === String(currentUser.id));
+    const directMatch = allSubmissions.find(sub => String(sub.studentId) === String(userToUse.id));
     
     if (directMatch && !directMatch.isReleased) {
          setModal({ message: "You have taken this quiz. It is currently pending results.", type: "info" });
@@ -302,7 +298,6 @@ const StudentDashboard = ({ setScreen, currentUser, setCurrentUser, setModal, se
                     <div className='flex items-center gap-3'>
                         {/* BUTTON VISUAL LOGIC */}
                         {quiz.isWaiting ? (
-                             // YELLOW PENDING BUTTON
                              <button disabled className="px-6 py-2 bg-yellow-600/20 text-yellow-500 border border-yellow-500 rounded-lg cursor-not-allowed font-bold">
                                 Pending...
                              </button>
@@ -311,7 +306,6 @@ const StudentDashboard = ({ setScreen, currentUser, setCurrentUser, setModal, se
                                 Retake
                              </button>
                         ) : (
-                             // BLUE START BUTTON
                              <button className="px-6 py-2 bg-blue-600 rounded-lg font-bold hover:bg-blue-500 shadow-md transition-transform hover:-translate-y-1" onClick={() => handleStartQuiz(quiz.id, false)}>
                                 Start Quiz
                              </button>

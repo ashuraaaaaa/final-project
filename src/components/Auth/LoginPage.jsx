@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom'; // Use Router for navigation
+import { useNavigate, Link } from 'react-router-dom';
 import { loadUsers, saveCurrentUser } from '../../utils/storage.js';
 
-// SVG Icons for Eye (Show) and Eye Slash (Hide)
+// --- ICONS ---
 const EyeIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
     <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8M1.173 8a13 13 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5s3.879 1.168 5.168 2.457A13 13 0 0 1 14.828 8q-.086.13-.195.288c-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5s-3.879-1.168-5.168-2.457A13 13 0 0 1 1.173 8"/>
@@ -18,17 +18,20 @@ const EyeSlashIcon = () => (
   </svg>
 );
 
-const LoginPage = ({ setCurrentUser, setModal }) => {
-  const navigate = useNavigate(); // Hook for navigation
+const LoginPage = ({ setCurrentUser }) => {
+  const navigate = useNavigate(); 
   
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false); // New state for toggling password
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const handleLogin = () => {
+    setError(""); 
+
     if (!username || !password) {
-      setModal({ message: "Please enter your username and password.", type: "error" });
+      setError("Please enter your username and password.");
       return;
     }
 
@@ -36,26 +39,48 @@ const LoginPage = ({ setCurrentUser, setModal }) => {
     
     setTimeout(() => { 
         const users = loadUsers();
-        const user = users.find(u => u.username === username && u.password === password);
-
-        if (!user) {
-            setModal({ message: "Invalid username or password.", type: "error" });
+        
+        // 1. SAFETY CHECK: Is the database empty?
+        if (!users || users.length === 0) {
+            setError("No accounts found. Please Sign Up first.");
             setIsLoading(false);
             return;
         }
 
-        // Login successful
-        setCurrentUser(user);
+        const cleanInput = username.trim().toLowerCase();
+
+        // 2. SMART FIND: Check Username OR Email
+        const user = users.find(u => {
+            const uName = (u.username || "").trim().toLowerCase();
+            const uEmail = (u.email || "").trim().toLowerCase();
+            return (uName === cleanInput || uEmail === cleanInput) && u.password === password;
+        });
+
+        if (!user) {
+            setError("Account not found or password incorrect.");
+            setIsLoading(false);
+            return;
+        }
+
+        // 3. SAFETY CHECK: Does the user have a valid role?
+        if (!user.role) {
+            setError("Error: Account is corrupted (missing role).");
+            setIsLoading(false);
+            return;
+        }
+
+        // 4. SUCCESS: Save session and update App state
         saveCurrentUser(user); 
+        setCurrentUser(user);
         
-        // Navigate based on role using Router
+        // 5. NAVIGATE based on role
         if (user.role === "student") {
             navigate('/student');
         } else {
             navigate('/instructor');
         }
         setIsLoading(false);
-    }, 500);
+    }, 800);
   };
 
   return (
@@ -63,17 +88,22 @@ const LoginPage = ({ setCurrentUser, setModal }) => {
       
       <h1 className="text-3xl font-bold mb-8 text-blue-400">Log In</h1>
 
+      {error && (
+        <div className="w-full bg-red-500/10 border border-red-500 text-red-400 text-sm p-3 rounded mb-4 text-center">
+            {error}
+        </div>
+      )}
+
       <div className="w-full flex flex-col gap-5">
         <input
           type="text"
-          placeholder="Username"
+          placeholder="Username or Email" 
           value={username}
           onChange={(e) => setUsername(e.target.value)}
           className="w-full p-4 rounded bg-gray-700 text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:outline-none transition-colors text-lg"
           disabled={isLoading}
         />
         
-        {/* PASSWORD FIELD WITH TOGGLE */}
         <div className="relative w-full">
             <input
               type={showPassword ? "text" : "password"}
