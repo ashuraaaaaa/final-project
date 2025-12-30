@@ -65,7 +65,7 @@ export const joinQuiz = (quizId, userId) => {
     // Check if already joined (convert to string to ensure matching works)
     if (!joined.map(String).includes(quizId.toString())) {
         joined.push(quizId);
-        // Save to a key unique to this user (e.g., app_joined_quizzes_12345)
+        // Save to a key unique to this user
         localStorage.setItem(`app_joined_quizzes_${userId}`, JSON.stringify(joined));
     }
 };
@@ -81,4 +81,20 @@ export const loadJoinedQuizzes = (userId) => {
         console.error("Error loading joined quizzes:", e);
         return [];
     }
+};
+
+
+export const unjoinQuiz = (quizId, userId) => {
+    if (!userId) {
+        console.error("Cannot unjoin quiz: Missing User ID");
+        return;
+    }
+
+    const joined = loadJoinedQuizzes(userId);
+    
+    // Filter out the specific quizId (convert to string to be safe)
+    const updatedList = joined.filter(id => id.toString() !== quizId.toString());
+    
+    // Save the updated list back to the specific user's storage
+    localStorage.setItem(`app_joined_quizzes_${userId}`, JSON.stringify(updatedList));
 };

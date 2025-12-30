@@ -107,6 +107,7 @@ const QuizPage = ({ setScreen, setModal, activeQuizId }) => {
     setAnswers({ ...answers, [qId]: option });
   };
 
+  // --- UPDATED SUBMIT LOGIC ---
   const handleSubmit = (isAuto = false, isViolationLimit = false) => {
     if (isSubmitted) return; 
 
@@ -118,7 +119,7 @@ const QuizPage = ({ setScreen, setModal, activeQuizId }) => {
       const qKey = `q_${q.id || q.index}`;
       const studentAnswer = (answers[qKey] || "").trim();
 
-      // Logic for Identification: Check against multiple answers separated by " or "
+      // Logic for Identification
       if (q.type === 'Identification') {
           const possibleAnswers = q.answer.split(' or ').map(a => a.trim().toLowerCase());
           if (possibleAnswers.includes(studentAnswer.toLowerCase())) {
@@ -132,27 +133,64 @@ const QuizPage = ({ setScreen, setModal, activeQuizId }) => {
     });
 
     const currentUser = loadCurrentUser(); 
+    
+    // 1. Create the Submission Object (Detailed data for this specific quiz)
     const newSubmission = {
       studentId: currentUser?.id,
       studentName: currentUser?.fullName || currentUser?.username,
       answers: answers, 
       score: finalScore,
       totalScore: totalScore,
-      // Ensure we record at least 3 violations if triggered by violation limit
       violations: isViolationLimit ? 3 : violations,
       timeTaken: timeElapsed,
       isReleased: false,
-      // Save version so we know if they need to retake later
       quizVersionTaken: quizData.lastUpdated || 0,
       submittedAt: new Date().toISOString()
     };
 
+    // 2. Save to 'quiz_submissions_[ID]' (For Instructor Grading View)
     const storageKey = `quiz_submissions_${activeQuizId}`; 
     const existingSubmissions = JSON.parse(localStorage.getItem(storageKey) || '[]');
-    // Filter out previous attempts by this user to avoid duplicates on retake
     const otherSubmissions = existingSubmissions.filter(sub => sub.studentId !== currentUser.id);
     otherSubmissions.push(newSubmission);
     localStorage.setItem(storageKey, JSON.stringify(otherSubmissions));
+
+    // ============================================================
+    // START NEW CODE: UPDATE USER HISTORY (For Dashboards)
+    // ============================================================
+    
+    // Create a summary object for the User's profile
+    const historyEntry = {
+        quizId: activeQuizId,
+        quizTitle: quizData.name,
+        score: finalScore,
+        totalScore: totalScore,
+        studentName: currentUser?.username, // Important for instructor view
+        dateTaken: new Date().toISOString() // Used for 'Time Ago'
+    };
+
+    // Update the main 'users' list in LocalStorage
+    const allUsers = JSON.parse(localStorage.getItem('users') || '[]');
+    const updatedAllUsers = allUsers.map(user => {
+        // Find the current user in the database and add this quiz to their history
+        if (user.id === currentUser.id) {
+            const currentHistory = user.takenQuizzes || [];
+            return { ...user, takenQuizzes: [...currentHistory, historyEntry] };
+        }
+        return user;
+    });
+    localStorage.setItem('users', JSON.stringify(updatedAllUsers));
+
+    // Update the 'currentUser' in LocalStorage so the UI updates instantly
+    const updatedCurrentUser = {
+        ...currentUser,
+        takenQuizzes: [...(currentUser.takenQuizzes || []), historyEntry]
+    };
+    localStorage.setItem('currentUser', JSON.stringify(updatedCurrentUser)); // Assuming you use 'currentUser' key
+    
+    // ============================================================
+    // END NEW CODE
+    // ============================================================
 
     setIsSubmitted(true);
     
@@ -196,7 +234,6 @@ const QuizPage = ({ setScreen, setModal, activeQuizId }) => {
                   });
               }
           }}
-          // Disable button only if user is actively taking quiz and currently tab-switching (rare edge case visual)
           disabled={!isSubmitted && isViolatingRef.current}
         >
           {isSubmitted ? 'Back to Dashboard' : 'End Quiz'}
@@ -215,12 +252,10 @@ const QuizPage = ({ setScreen, setModal, activeQuizId }) => {
           const qId = `q_${q.id || index}`; 
           const studentAns = answers[qId];
           
-          // Determine if answer is correct (for Review Mode highlighting)
           let isCorrect = false;
           if (isReviewMode) {
               const ans = (studentAns || "").trim();
               if (q.type === 'Identification') {
-                  // Check against all "or" options
                   isCorrect = q.answer.split(' or ').map(a => a.trim().toLowerCase()).includes(ans.toLowerCase());
               } else {
                   isCorrect = ans === q.answer;
@@ -231,8 +266,6 @@ const QuizPage = ({ setScreen, setModal, activeQuizId }) => {
             <div key={qId} className={`p-5 border rounded-lg space-y-3 bg-gray-700 transition-all ${isReviewMode ? (isCorrect ? 'border-green-500 bg-green-900/10' : 'border-red-500 bg-red-900/10') : 'border-gray-700'}`}>
               <p className="font-semibold text-xl">{index + 1}. {q.text}</p>
               
-              {/* RUBRIC / INSTRUCTION DISPLAY */}
-              {/* Show rubric table for Essays */}
               {(q.type === 'Essay' && q.rubric && q.rubric.length > 0) ? (
                   <div className="mb-4 bg-gray-800 rounded border border-blue-500 overflow-hidden">
                       <div className="bg-blue-900/30 p-2 border-b border-blue-500/50">
@@ -257,11 +290,7 @@ const QuizPage = ({ setScreen, setModal, activeQuizId }) => {
                   </div>
               ) : null}
 
-              {/* Show simple instructions for Identification/Essay if no rubric */}
               {(q.type === 'Identification' || (q.type === 'Essay' && (!q.rubric || q.rubric.length === 0))) && q.answer && !isReviewMode && (
-                  // Only show hints in review mode or if it's strictly instruction, usually answer key is hidden during quiz
-                  // Note: For Identification, 'q.answer' is the key, so don't show it during quiz!
-                  // Only show if it's specifically an Essay instruction text stored in 'answer' field (legacy check)
                   q.type === 'Essay' ? (
                     <div className="mb-4 bg-gray-800 p-3 rounded text-sm text-gray-300 border-l-4 border-blue-500">
                         <span className="font-bold text-blue-400">Instructions:</span> {q.answer}
@@ -270,7 +299,6 @@ const QuizPage = ({ setScreen, setModal, activeQuizId }) => {
               )}
 
               <div className="flex flex-col gap-2">
-                {/* Options for MC / True False */}
                 {(q.type === 'Multiple Choice' || q.type === 'True or False') && q.options.map(opt => {
                   let btnStyle = "bg-gray-600";
                   if (studentAns === opt) btnStyle = isReviewMode ? (isCorrect ? "bg-green-600" : "bg-red-600") : "bg-blue-600";
@@ -290,7 +318,6 @@ const QuizPage = ({ setScreen, setModal, activeQuizId }) => {
                   );
                 })}
 
-                {/* Text Input for Identification / Essay */}
                 {(q.type === 'Identification' || q.type === 'Essay') && (
                     <textarea
                         disabled={isSubmitted || isViolatingRef.current}
@@ -302,7 +329,6 @@ const QuizPage = ({ setScreen, setModal, activeQuizId }) => {
                     />
                 )}
 
-                {/* Show Correct Answer in Review Mode */}
                 {isReviewMode && q.type !== 'Essay' && !isCorrect && (
                     <div className="mt-2 p-2 bg-gray-800 rounded border border-yellow-600 text-yellow-200 text-sm">
                         <span className="font-bold">Correct Answer:</span> {q.answer}
