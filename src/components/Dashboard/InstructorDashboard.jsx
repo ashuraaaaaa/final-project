@@ -9,8 +9,7 @@ const InstructorDashboard = ({ setScreen, currentUser, setModal }) => {
     const [selectedQuiz, setSelectedQuiz] = useState(null); 
     const [viewingSubmissions, setViewingSubmissions] = useState([]);
 
-    // Stores scores for Rubrics AND Manual Identification: 
-    // Keys: "q_1_c_0" (Rubric) or "q_1_manual" (Identification)
+    
     const [rubricScores, setRubricScores] = useState({});
 
     // --- PROFILE STATE ---
