@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { clearCurrentUser, loadUsers, saveUsers, saveCurrentUser } from '../../utils/storage.js'; 
-import { loadQuizzes, deleteQuiz, saveQuizzes } from '../../utils/quizStorage.js'; 
+import { loadQuizzes, saveQuizzes } from '../../utils/quizStorage.js'; 
 
 const InstructorDashboard = ({ setScreen, currentUser, setModal }) => {
     const [selectedSubmission, setSelectedSubmission] = useState(null);
@@ -9,7 +9,7 @@ const InstructorDashboard = ({ setScreen, currentUser, setModal }) => {
     const [selectedQuiz, setSelectedQuiz] = useState(null); 
     const [viewingSubmissions, setViewingSubmissions] = useState([]);
 
-    
+    // Stores scores for Rubrics AND Manual Identification
     const [rubricScores, setRubricScores] = useState({});
 
     // --- PROFILE STATE ---
@@ -21,21 +21,15 @@ const InstructorDashboard = ({ setScreen, currentUser, setModal }) => {
         setAllQuizzes(loadQuizzes());
         setTotalStudents(loadUsers().filter(u => u.role === "Student").length);
         setProfileData({ ...currentUser });
-        
-        // Clear edit session when entering dashboard to ensure fresh state
         localStorage.removeItem('editQuizId');
     }, [currentUser]);
 
     // --- PROFILE HANDLERS ---
     const handleSaveProfile = () => {
         const users = loadUsers();
-        // Update the instructor in the main database
         const updatedUsers = users.map(u => u.id === currentUser.id ? profileData : u);
         saveUsers(updatedUsers);
-        
-        // Update the current session
         saveCurrentUser(profileData);
-        
         setEditMode(false);
         setModal({ message: "Instructor profile updated successfully!", type: "success" });
     };
@@ -52,7 +46,7 @@ const InstructorDashboard = ({ setScreen, currentUser, setModal }) => {
     };
 
     const getQuizStats = (quizId) => {
-        const submissions = JSON.parse(localStorage.getItem(quiz_submissions_${quizId}) || '[]');
+        const submissions = JSON.parse(localStorage.getItem(`quiz_submissions_${quizId}`) || '[]');
         return {
             totalSubmissions: submissions.length,
             totalViolations: submissions.reduce((sum, sub) => sum + (sub.violations || 0), 0),
@@ -63,28 +57,28 @@ const InstructorDashboard = ({ setScreen, currentUser, setModal }) => {
     const formatTimeTaken = (seconds) => {
         const minutes = Math.floor(seconds / 60);
         const remainingSeconds = seconds % 60;
-        return ${minutes}m ${remainingSeconds}s;
+        return `${minutes}m ${remainingSeconds}s`;
     };
 
     const handleViewDetails = (quiz) => {
-        const submissions = JSON.parse(localStorage.getItem(quiz_submissions_${quiz.id}) || '[]');
+        const submissions = JSON.parse(localStorage.getItem(`quiz_submissions_${quiz.id}`) || '[]');
         setViewingSubmissions(submissions);
         setSelectedQuiz(quiz);
     };
 
     const handleReleaseResults = (quizId) => {
-        const submissions = JSON.parse(localStorage.getItem(quiz_submissions_${quizId}) || '[]');
+        const submissions = JSON.parse(localStorage.getItem(`quiz_submissions_${quizId}`) || '[]');
         if (submissions.length > 0) {
             const updatedSubmissions = submissions.map(sub => ({ ...sub, isReleased: true }));
-            localStorage.setItem(quiz_submissions_${quizId}, JSON.stringify(updatedSubmissions));
+            localStorage.setItem(`quiz_submissions_${quizId}`, JSON.stringify(updatedSubmissions));
         }
         const updatedQuizzes = allQuizzes.map(q => q.id === quizId ? { ...q, isReleased: true } : q);
         saveQuizzes(updatedQuizzes); 
         setAllQuizzes(updatedQuizzes); 
-        setModal({ message: Results for Quiz ID ${quizId} released., type: "success" });
+        setModal({ message: `Results for Quiz ID ${quizId} released.`, type: "success" });
     }
 
-    // --- UPDATED DELETE HANDLER (With Delay) ---
+    // --- UPDATED DELETE HANDLER (FIXED POP-UP) ---
     const handleDeleteQuiz = (quizId) => {
         setModal({
             message: "Are you sure you want to delete this quiz? It will be removed from your dashboard.",
@@ -98,13 +92,16 @@ const InstructorDashboard = ({ setScreen, currentUser, setModal }) => {
                 saveQuizzes(updatedQuizzes);
                 setAllQuizzes(updatedQuizzes); 
 
-                // 2. Show Success Message (Wait 500ms for the confirm modal to close first)
+                // 2. Force Close the 'Confirm' modal first to prevent conflict
+                setModal(null); 
+
+                // 3. Show 'Success' modal after a short delay
                 setTimeout(() => {
                     setModal({
-                        message: "SUCCESSFULLY DELETED",
+                        message: "Deleted successfully",
                         type: "success"
                     });
-                }, 500); 
+                }, 300); 
             }
         });
     };
@@ -120,7 +117,6 @@ const InstructorDashboard = ({ setScreen, currentUser, setModal }) => {
     };
 
     // --- GRADING & SCORING LOGIC ---
-
     const openGradingModal = (submission) => {
         setSelectedSubmission(submission);
         
@@ -129,7 +125,7 @@ const InstructorDashboard = ({ setScreen, currentUser, setModal }) => {
         } else {
             const initialScores = {};
             selectedQuiz.questions.forEach((q, idx) => {
-                const qId = q_${q.id || idx};
+                const qId = `q_${q.id || idx}`;
                 const studentAns = (submission.answers[qId] || "").trim();
 
                 if (q.type === 'Identification') {
@@ -144,19 +140,14 @@ const InstructorDashboard = ({ setScreen, currentUser, setModal }) => {
 
     const updateScore = (qId, type, value, maxPoints) => {
         const validScore = Math.min(Math.max(0, Number(value)), maxPoints);
-        
-<<<<<<< HEAD
         const key = type === 'manual' ? `${qId}_manual` : `${qId}_c_${type}`;
-=======
-        const key = type === 'manual' ? ${qId}_manual : ${qId}_c_${type};
->>>>>>> 3d2a6e2286c5216cbf8462501e823d6f0d0ab050
         
         const newScores = { ...rubricScores, [key]: validScore };
         setRubricScores(newScores);
 
         let grandTotal = 0;
         selectedQuiz.questions.forEach((q, idx) => {
-            const currentQId = q_${q.id || idx};
+            const currentQId = `q_${q.id || idx}`;
             
             if (q.type === 'Essay' && q.rubric) {
                 q.rubric.forEach((_, rIdx) => {
@@ -172,11 +163,7 @@ const InstructorDashboard = ({ setScreen, currentUser, setModal }) => {
             }
         });
 
-<<<<<<< HEAD
         const quizKey = `quiz_submissions_${selectedQuiz.id}`;
-=======
-        const quizKey = quiz_submissions_${selectedQuiz.id};
->>>>>>> 3d2a6e2286c5216cbf8462501e823d6f0d0ab050
         const subs = JSON.parse(localStorage.getItem(quizKey) || "[]");
         const updatedSubs = subs.map(s => 
             s.studentId === selectedSubmission.studentId ? { 
@@ -349,7 +336,7 @@ const InstructorDashboard = ({ setScreen, currentUser, setModal }) => {
                                 </thead>
                                 <tbody className="bg-gray-800 divide-y divide-gray-700">
                                     {selectedQuiz.questions.map((q, index) => {
-                                        const qId = q_${q.id || index};
+                                        const qId = `q_${q.id || index}`;
                                         const studentAns = selectedSubmission.answers[qId];
                                         
                                         return (
