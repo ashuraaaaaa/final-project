@@ -22,14 +22,10 @@ const StudentDashboard = ({ setScreen, currentUser, setCurrentUser, setModal, se
 
   // --- 1. Load Data safely ---
   useEffect(() => {
-    // We fetch fresh data to ensure we have the latest quiz history
     const freshUser = loadCurrentUser(); 
     const userToUse = freshUser || currentUser;
 
     if (userToUse && userToUse.id) {
-        // We DO NOT call setCurrentUser here anymore to prevent the loop.
-        // We just use the data locally to build the lists.
-
         const joinedIds = loadJoinedQuizzes(userToUse.id);
         
         const validQuizzes = [];
@@ -54,10 +50,8 @@ const StudentDashboard = ({ setScreen, currentUser, setCurrentUser, setModal, se
         const completed = [];
 
         validQuizzes.forEach(quiz => {
-            // Check Profile history
             let takenRecord = userToUse.takenQuizzes?.find(q => String(q.quizId) === String(quiz.id));
 
-            // Double check global submissions (Failsafe)
             if (!takenRecord) {
                 const allSubmissions = JSON.parse(localStorage.getItem(`quiz_submissions_${quiz.id}`) || '[]');
                 const directMatch = allSubmissions.find(sub => String(sub.studentId) === String(userToUse.id));
@@ -99,12 +93,11 @@ const StudentDashboard = ({ setScreen, currentUser, setCurrentUser, setModal, se
         // Update local profile data form only
         setProfileData({ ...userToUse }); 
     }
-  }, [activeModal]); // Removed 'currentUser' from dependency array to stop the loop
+  }, [activeModal]);
 
   // --- Handlers ---
   const handleLogout = () => {
     clearCurrentUser(); 
-    // In router mode, we reload or redirect
     window.location.href = "/"; 
   };
 
@@ -114,7 +107,6 @@ const StudentDashboard = ({ setScreen, currentUser, setCurrentUser, setModal, se
     saveUsers(updatedUsers);
     saveCurrentUser(profileData);
     
-    // THIS is the only time we update the global App state
     setCurrentUser(profileData); 
     
     setEditMode(false);
@@ -166,7 +158,7 @@ const StudentDashboard = ({ setScreen, currentUser, setCurrentUser, setModal, se
     }
 
     setActiveQuizId(quizId);
-    setScreen("quiz"); // This assumes App.jsx handles "quiz" screen render
+    setScreen("quiz");
   }
 
   const handleQuizEntry = () => {
@@ -386,7 +378,7 @@ const StudentDashboard = ({ setScreen, currentUser, setCurrentUser, setModal, se
         </div>
       )}
 
-      {/* 3. PROFILE MODAL */}
+      {/* 3. PROFILE MODAL (FIXED SECTION) */}
       {activeModal === 'profile' && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="bg-gray-800 p-6 rounded-2xl w-full max-w-md border border-blue-500 shadow-2xl">
@@ -402,10 +394,59 @@ const StudentDashboard = ({ setScreen, currentUser, setCurrentUser, setModal, se
                     </div>
                 </div>
 
-                <div className="space-y-3">
+                <div className="space-y-4">
+                    {/* Full Name */}
                     <div>
                         <span className="text-gray-400 text-xs uppercase font-bold">Full Name</span>
-                        {editMode ? <input className="w-full p-2 rounded bg-gray-700 border border-blue-500 text-white" value={profileData.fullName} onChange={e => setProfileData({...profileData, fullName: e.target.value})} /> : <p className="text-lg font-semibold border-b border-gray-700 pb-1">{currentUser.fullName}</p>}
+                        {editMode ? <input className="w-full p-2 rounded bg-gray-700 border border-blue-500 text-white" value={profileData.fullName || ''} onChange={e => setProfileData({...profileData, fullName: e.target.value})} /> : <p className="text-lg font-semibold border-b border-gray-700 pb-1">{currentUser.fullName}</p>}
+                    </div>
+
+                    {/* Student Number */}
+                    <div>
+                        <span className="text-gray-400 text-xs uppercase font-bold">Student Number</span>
+                        {editMode ? (
+                            <input 
+                                className="w-full p-2 rounded bg-gray-700 border border-blue-500 text-white" 
+                                value={profileData.studentNumber || ''} 
+                                onChange={e => setProfileData({...profileData, studentNumber: e.target.value})} 
+                            />
+                        ) : (
+                            <p className="text-lg font-semibold border-b border-gray-700 pb-1">{currentUser.studentNumber || 'N/A'}</p>
+                        )}
+                    </div>
+
+                    {/* Year & Section */}
+                    <div className="flex gap-4">
+                        <div className="flex-1">
+                            <span className="text-gray-400 text-xs uppercase font-bold">Year Level</span>
+                            {editMode ? (
+                                <select 
+                                    className="w-full p-2 rounded bg-gray-700 border border-blue-500 text-white"
+                                    value={profileData.year || ''}
+                                    onChange={e => setProfileData({...profileData, year: e.target.value})}
+                                >
+                                    <option value="">Select</option>
+                                    <option value="1">1st Year</option>
+                                    <option value="2">2nd Year</option>
+                                    <option value="3">3rd Year</option>
+                                    <option value="4">4th Year</option>
+                                </select>
+                            ) : (
+                                <p className="text-lg font-semibold border-b border-gray-700 pb-1">{currentUser.year ? `${currentUser.year}${['st','nd','rd'][currentUser.year-1]||'th'} Year` : 'N/A'}</p>
+                            )}
+                        </div>
+                        <div className="flex-1">
+                            <span className="text-gray-400 text-xs uppercase font-bold">Section</span>
+                            {editMode ? (
+                                <input 
+                                    className="w-full p-2 rounded bg-gray-700 border border-blue-500 text-white" 
+                                    value={profileData.section || ''} 
+                                    onChange={e => setProfileData({...profileData, section: e.target.value})} 
+                                />
+                            ) : (
+                                <p className="text-lg font-semibold border-b border-gray-700 pb-1">{currentUser.section || 'N/A'}</p>
+                            )}
+                        </div>
                     </div>
                 </div>
 
