@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { timeAgo, formatDate } from '../../utils/dateUtils'; // Import the helper we made earlier
+import { timeAgo, formatDate } from '../../utils/dateUtils';
+import './StudentHistory.css'; // Import the new CSS
 
 const StudentHistory = ({ currentUser }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -12,21 +13,16 @@ const StudentHistory = ({ currentUser }) => {
       return;
     }
 
-    // 1. Sort by Newest First
     let sorted = [...currentUser.takenQuizzes].sort((a, b) => {
       return new Date(b.dateTaken) - new Date(a.dateTaken);
     });
 
-    // 2. Apply Filters
     const result = sorted.filter(quiz => {
       const matchName = quiz.quizTitle.toLowerCase().includes(searchTerm.toLowerCase());
-      
       let matchMonth = true;
       if (monthFilter) {
-        // monthFilter comes as "2025-12". We check if the quiz date starts with this.
         matchMonth = quiz.dateTaken.startsWith(monthFilter);
       }
-
       return matchName && matchMonth;
     });
 
@@ -34,76 +30,68 @@ const StudentHistory = ({ currentUser }) => {
   }, [currentUser, searchTerm, monthFilter]);
 
   return (
-    <div className="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700 mt-6">
-      <h3 className="text-xl font-bold text-yellow-400 mb-4 flex items-center gap-2">
-        <span className="text-2xl">📜</span> Quiz History
+    <div className="history-container">
+      <h3 className="history-title">
+        <span className="history-icon-large">📜</span> Quiz History
       </h3>
 
-      {/* --- FILTERS SECTION --- */}
-      <div className="flex flex-col md:flex-row gap-4 mb-6">
-        {/* Search Input */}
+      <div className="filter-wrapper">
         <input 
           type="text" 
           placeholder="Search by Quiz Name..." 
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="flex-1 p-2 rounded bg-gray-700 border border-gray-600 text-white focus:border-yellow-400 focus:outline-none"
+          className="filter-search"
         />
 
-        {/* Month Filter */}
         <input 
           type="month" 
           value={monthFilter}
           onChange={(e) => setMonthFilter(e.target.value)}
-          className="p-2 rounded bg-gray-700 border border-gray-600 text-white focus:border-yellow-400 focus:outline-none"
+          className="filter-month"
         />
         
-        {/* Reset Button */}
         {(searchTerm || monthFilter) && (
           <button 
             onClick={() => { setSearchTerm(''); setMonthFilter(''); }}
-            className="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded text-sm transition-colors"
+            className="filter-clear-btn"
           >
             Clear Filters
           </button>
         )}
       </div>
 
-      {/* --- LIST SECTION --- */}
-      <div className="space-y-4">
+      <div className="history-list">
         {filteredQuizzes.length > 0 ? (
           filteredQuizzes.map((quiz, index) => (
-            <div key={index} className="flex items-center justify-between bg-gray-700/50 p-4 rounded-lg border border-gray-600 hover:bg-gray-700 transition-colors">
+            <div key={index} className="history-item">
               
-              <div className="flex items-center gap-4">
-                {/* Status Icon */}
-                <div className="bg-green-900/50 p-2 rounded-full border border-green-500/30">
-                  <svg className="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
+              <div className="history-item-left">
+                <div className="status-icon-container">
+                  <svg className="status-icon-svg" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+                  </svg>
                 </div>
                 
                 <div>
-                  <h4 className="font-bold text-white text-lg">{quiz.quizTitle}</h4>
-                  <div className="flex gap-3 text-sm text-gray-400 mt-1">
-                    {/* Time Ago Display */}
-                    <span className="text-blue-300 bg-blue-900/30 px-2 py-0.5 rounded text-xs flex items-center">
+                  <h4 className="quiz-info-title">{quiz.quizTitle}</h4>
+                  <div className="quiz-info-meta">
+                    <span className="time-ago-badge">
                       🕒 {timeAgo(quiz.dateTaken)}
                     </span>
-                    
-                    {/* Exact Date */}
                     <span>📅 {formatDate(quiz.dateTaken)}</span>
                   </div>
                 </div>
               </div>
 
-              {/* Score Display */}
-              <div className="text-right">
-                <span className="block text-2xl font-bold text-yellow-400">{quiz.score}</span>
-                <span className="text-xs text-gray-500 uppercase">Points</span>
+              <div className="score-container">
+                <span className="score-value">{quiz.score}</span>
+                <span className="score-label">Points</span>
               </div>
             </div>
           ))
         ) : (
-          <div className="text-center py-8 text-gray-500">
+          <div className="no-history-msg">
             No history found. Try changing your filters or take a quiz!
           </div>
         )}
