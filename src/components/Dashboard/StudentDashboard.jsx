@@ -90,7 +90,6 @@ const StudentDashboard = ({ setScreen, currentUser, setCurrentUser, setModal, se
         setCompletedQuizzes(completed.sort((a, b) => new Date(b.dateTaken) - new Date(a.dateTaken)));
         setJoinedQuizzes(validQuizzes);
         
-        // Update local profile data form only
         setProfileData({ ...userToUse }); 
     }
   }, [activeModal]);
@@ -200,13 +199,14 @@ const StudentDashboard = ({ setScreen, currentUser, setCurrentUser, setModal, se
       });
   };
   
+  // Use p-4 on mobile, p-6 on desktop for better fit
   return (
-    <div className="min-h-screen bg-gray-900 text-white p-6 flex flex-col w-full max-w-5xl mx-auto">
+    <div className="min-h-screen bg-gray-900 text-white p-4 sm:p-6 flex flex-col w-full max-w-5xl mx-auto">
       
       {/* --- HEADER --- */}
-      <header className="flex flex-col md:flex-row justify-between items-center mb-10 pb-6 border-b border-gray-700 gap-4">
+      <header className="flex flex-col md:flex-row justify-between items-center mb-8 pb-6 border-b border-gray-700 gap-4">
         <div className='flex items-center gap-4 w-full md:w-auto'>
-            <div className="w-14 h-14 rounded-full bg-gray-700 overflow-hidden border-2 border-blue-500 cursor-pointer hover:scale-105 transition-transform" onClick={() => setActiveModal('profile')}>
+            <div className="w-14 h-14 rounded-full bg-gray-700 overflow-hidden border-2 border-blue-500 cursor-pointer hover:scale-105 transition-transform shrink-0" onClick={() => setActiveModal('profile')}>
                 {currentUser?.profilePic ? (
                     <img src={currentUser.profilePic} alt="Profile" className="w-full h-full object-cover" />
                 ) : (
@@ -215,8 +215,8 @@ const StudentDashboard = ({ setScreen, currentUser, setCurrentUser, setModal, se
             </div>
 
             <div>
-                <h1 className="text-3xl font-extrabold text-white">Welcome, <span className="text-blue-400">{currentUser?.fullName || currentUser?.username}</span>!</h1>
-                <div className="flex gap-4 text-sm text-gray-400 mt-1">
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-white">Welcome, <span className="text-blue-400">{currentUser?.fullName || currentUser?.username}</span>!</h1>
+                <div className="flex flex-wrap gap-2 sm:gap-4 text-xs sm:text-sm text-gray-400 mt-1">
                     <button onClick={() => setActiveModal('profile')} className="hover:text-white underline">Edit Profile</button>
                     <span>|</span>
                     <button onClick={() => setActiveModal('completed')} className="hover:text-green-400 text-green-500 font-semibold flex items-center gap-1">
@@ -234,9 +234,9 @@ const StudentDashboard = ({ setScreen, currentUser, setCurrentUser, setModal, se
       <div className="w-full max-w-3xl mx-auto space-y-8">
         
         {/* JOIN SECTION */}
-        <div className="bg-gray-800 p-8 rounded-2xl shadow-xl border border-gray-700">
+        <div className="bg-gray-800 p-6 sm:p-8 rounded-2xl shadow-xl border border-gray-700">
             <h2 className="text-2xl font-bold mb-4 text-blue-400 flex items-center gap-2">🚀 Join a Quiz</h2>
-            <div className="flex gap-3">
+            <div className="flex flex-col sm:flex-row gap-3">
                 <input type="text" placeholder="Enter 6-digit Quiz ID" value={quizIdEntry} onChange={(e) => setQuizIdEntry(e.target.value)} className="flex-1 p-4 rounded-lg bg-gray-700 text-white text-lg focus:outline-none focus:ring-2 focus:ring-blue-500"/>
                 <button onClick={handleQuizEntry} className="px-8 py-4 bg-green-600 rounded-lg hover:bg-green-500 font-bold text-lg shadow-lg active:scale-95">Join</button>
             </div>
@@ -259,10 +259,10 @@ const StudentDashboard = ({ setScreen, currentUser, setCurrentUser, setModal, se
         </div>
         
         {/* PENDING QUIZZES LIST */}
-        <div className="bg-gray-800 p-8 rounded-2xl shadow-xl border border-gray-700 min-h-[300px]">
-            <h2 className="text-2xl font-bold border-b pb-4 mb-6 border-gray-700 text-blue-400 flex justify-between">
+        <div className="bg-gray-800 p-6 sm:p-8 rounded-2xl shadow-xl border border-gray-700 min-h-[300px]">
+            <h2 className="text-2xl font-bold border-b pb-4 mb-6 border-gray-700 text-blue-400 flex justify-between items-center">
                 <span>📝 Active Quizzes</span>
-                <span className="text-sm bg-gray-700 px-3 py-1 rounded text-gray-300 font-normal self-center">Count: {pendingQuizzes.length}</span>
+                <span className="text-xs sm:text-sm bg-gray-700 px-3 py-1 rounded text-gray-300 font-normal">Count: {pendingQuizzes.length}</span>
             </h2>
             
             <div className="flex flex-col gap-4">
@@ -274,8 +274,8 @@ const StudentDashboard = ({ setScreen, currentUser, setCurrentUser, setModal, se
             )}
             
             {pendingQuizzes.map(quiz => (
-                <div key={quiz.id} className={`flex flex-col sm:flex-row justify-between items-center p-5 border-l-4 ${quiz.isWaiting ? 'border-yellow-500' : 'border-blue-500'} bg-gray-700/40 rounded-lg hover:bg-gray-700 transition-all group relative`}>
-                    <div className='flex flex-col mb-3 sm:mb-0'>
+                <div key={quiz.id} className={`flex flex-col sm:flex-row justify-between items-start sm:items-center p-5 border-l-4 ${quiz.isWaiting ? 'border-yellow-500' : 'border-blue-500'} bg-gray-700/40 rounded-lg hover:bg-gray-700 transition-all group relative gap-4`}>
+                    <div className='flex flex-col w-full sm:w-auto'>
                         <span className="font-bold text-xl text-white group-hover:text-blue-300 transition-colors">{quiz.name}</span>
                         <span className="text-sm font-medium text-gray-400">
                             {/* DYNAMIC SUBTITLE */}
@@ -287,18 +287,18 @@ const StudentDashboard = ({ setScreen, currentUser, setCurrentUser, setModal, se
                         </span>
                     </div>
                     
-                    <div className='flex items-center gap-3'>
+                    <div className='flex items-center gap-3 w-full sm:w-auto justify-end'>
                         {/* BUTTON VISUAL LOGIC */}
                         {quiz.isWaiting ? (
-                             <button disabled className="px-6 py-2 bg-yellow-600/20 text-yellow-500 border border-yellow-500 rounded-lg cursor-not-allowed font-bold">
+                             <button disabled className="px-6 py-2 bg-yellow-600/20 text-yellow-500 border border-yellow-500 rounded-lg cursor-not-allowed font-bold w-full sm:w-auto">
                                 Pending...
                              </button>
                         ) : quiz.isRetake ? (
-                             <button className="px-6 py-2 bg-purple-600 rounded-lg font-bold hover:bg-purple-500 animate-pulse shadow-md" onClick={() => handleStartQuiz(quiz.id, true)}>
+                             <button className="px-6 py-2 bg-purple-600 rounded-lg font-bold hover:bg-purple-500 animate-pulse shadow-md w-full sm:w-auto" onClick={() => handleStartQuiz(quiz.id, true)}>
                                 Retake
                              </button>
                         ) : (
-                             <button className="px-6 py-2 bg-blue-600 rounded-lg font-bold hover:bg-blue-500 shadow-md transition-transform hover:-translate-y-1" onClick={() => handleStartQuiz(quiz.id, false)}>
+                             <button className="px-6 py-2 bg-blue-600 rounded-lg font-bold hover:bg-blue-500 shadow-md transition-transform hover:-translate-y-1 w-full sm:w-auto" onClick={() => handleStartQuiz(quiz.id, false)}>
                                 Start Quiz
                              </button>
                         )}
@@ -329,15 +329,15 @@ const StudentDashboard = ({ setScreen, currentUser, setCurrentUser, setModal, se
                 </div>
 
                 <div className="flex gap-3 mb-4">
-                    <input type="text" placeholder="Search quiz name..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="flex-1 p-3 bg-gray-700 rounded-lg border border-gray-600 focus:border-green-400 focus:outline-none"/>
+                    <input type="text" placeholder="Search..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="flex-1 p-3 bg-gray-700 rounded-lg border border-gray-600 focus:border-green-400 focus:outline-none"/>
                     <input type="month" value={monthFilter} onChange={(e) => setMonthFilter(e.target.value)} className="p-3 bg-gray-700 rounded-lg border border-gray-600 focus:border-green-400 focus:outline-none"/>
                 </div>
 
                 <div className="flex-1 overflow-y-auto pr-2 space-y-3 custom-scrollbar">
                     {getFilteredCompleted().length > 0 ? getFilteredCompleted().map((record, index) => {
                          return (
-                            <div key={index} className="flex flex-col md:flex-row justify-between items-center bg-gray-700/30 p-4 rounded-xl border border-gray-600 hover:bg-gray-700 transition-colors">
-                                <div className="mb-3 md:mb-0">
+                            <div key={index} className="flex flex-col md:flex-row justify-between items-center bg-gray-700/30 p-4 rounded-xl border border-gray-600 hover:bg-gray-700 transition-colors gap-3">
+                                <div className="mb-0">
                                     <div className="font-bold text-white text-lg">{record.quizTitle || record.name}</div>
                                     <div className="flex flex-wrap gap-3 mt-1 text-sm">
                                         <span className="text-green-300 bg-green-900/30 px-2 py-0.5 rounded flex items-center gap-1">
@@ -346,8 +346,8 @@ const StudentDashboard = ({ setScreen, currentUser, setCurrentUser, setModal, se
                                         <span className="text-gray-400">{formatDate(record.dateTaken)}</span>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-4">
-                                    <div className="text-right">
+                                <div className="flex items-center gap-4 justify-between w-full md:w-auto">
+                                    <div className="text-left md:text-right">
                                         <div className="text-2xl font-bold text-yellow-500">{record.score} <span className="text-sm text-gray-500">/ {record.totalScore}</span></div>
                                         <div className="text-xs text-gray-500 uppercase font-bold">Final Score</div>
                                     </div>
@@ -378,10 +378,10 @@ const StudentDashboard = ({ setScreen, currentUser, setCurrentUser, setModal, se
         </div>
       )}
 
-      {/* 3. PROFILE MODAL (FIXED SECTION) */}
+      {/* 3. PROFILE MODAL - FIXED & RESPONSIVE */}
       {activeModal === 'profile' && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-gray-800 p-6 rounded-2xl w-full max-w-md border border-blue-500 shadow-2xl">
+            <div className="bg-gray-800 p-6 rounded-2xl w-full max-w-md border border-blue-500 shadow-2xl max-h-[90vh] overflow-y-auto">
                 <div className="flex justify-between items-center mb-6">
                     <h2 className="text-2xl font-bold text-blue-400">Edit Profile</h2>
                     <button onClick={() => setActiveModal(null)} className="text-gray-400 hover:text-white text-2xl">&times;</button>
@@ -415,8 +415,8 @@ const StudentDashboard = ({ setScreen, currentUser, setCurrentUser, setModal, se
                         )}
                     </div>
 
-                    {/* Year & Section */}
-                    <div className="flex gap-4">
+                    {/* Year & Section (STACK ON MOBILE, ROW ON DESKTOP) */}
+                    <div className="flex flex-col sm:flex-row gap-4">
                         <div className="flex-1">
                             <span className="text-gray-400 text-xs uppercase font-bold">Year Level</span>
                             {editMode ? (
