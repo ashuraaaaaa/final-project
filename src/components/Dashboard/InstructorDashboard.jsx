@@ -92,13 +92,13 @@ const InstructorDashboard = ({ setScreen, currentUser, setModal }) => {
                 saveQuizzes(updatedQuizzes);
                 setAllQuizzes(updatedQuizzes); 
 
-                // 2. Force Close the 'Confirm' modal first to prevent conflict
+                // 2. Force Close the 'Confirm' modal first
                 setModal(null); 
 
                 // 3. Show 'Success' modal after a short delay
                 setTimeout(() => {
                     setModal({
-                        message: "Deleted successfully",
+                        message: "SUCCESSFULLY DELETED",
                         type: "success"
                     });
                 }, 300); 
@@ -441,8 +441,8 @@ const InstructorDashboard = ({ setScreen, currentUser, setModal }) => {
                             </tr>
                         </thead>
                         <tbody>
-                            {/* FILTER: Show only quizzes NOT marked as deleted */}
-                            {allQuizzes.filter(q => !q.isDeleted).map(quiz => {
+                            {/* --- FILTER: Show only quizzes NOT deleted AND created by CURRENT USER --- */}
+                            {allQuizzes.filter(q => !q.isDeleted && q.createdBy === currentUser.username).map(quiz => {
                                 const stats = getQuizStats(quiz.id);
                                 return (
                                     <tr key={quiz.id} className="border-b border-gray-700 hover:bg-gray-700 transition-colors">

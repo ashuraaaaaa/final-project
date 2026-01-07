@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { addQuiz, generateQuizId, loadQuizzes, saveQuizzes } from '../../utils/quizStorage.js'; 
+import { loadCurrentUser } from '../../utils/storage.js'; // 1. IMPORT ADDED
 
 const questionTypes = ["Identification", "Multiple Choice", "True or False", "Essay"];
 
@@ -123,6 +124,7 @@ const QuizCreationPage = ({ setScreen, setModal }) => {
 
     const executeSave = () => {
         const timestamp = Date.now(); // Versioning timestamp
+        const currentUser = loadCurrentUser(); // 2. GET CURRENT INSTRUCTOR
 
         if (isEditing) {
             // Update Existing
@@ -151,7 +153,9 @@ const QuizCreationPage = ({ setScreen, setModal }) => {
                 violationThreshold: 3, 
                 questions: questions,
                 isPublished: true,
-                lastUpdated: timestamp
+                lastUpdated: timestamp,
+                // 3. TAG THE QUIZ WITH CREATOR USERNAME
+                createdBy: currentUser ? currentUser.username : 'unknown'
             };
             addQuiz(newQuiz);
             setModal({ message: `Quiz "${quizName}" created! Share ID: ${newQuiz.id}`, type: "success" });
